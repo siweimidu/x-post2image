@@ -1,0 +1,21 @@
+{
+  "name": "x-post2image-skill",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent Skill: render X/Twitter posts as pixel-faithful cards and run a source-audited insight-card content pipeline.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "render": "node scripts/x-post2image.mjs",
+    "insight": "node scripts/insight.mjs",
+    "install": "node scripts/install-skill.mjs",
+    "doctor": "node scripts/x-post2image.mjs --doctor",
+    "test": "node --test test/*.test.mjs scripts/insight/delivery/*.test.mjs",
+    "test:e2e": "node test/e2e.mjs",
+    "zip": "node scripts/package.mjs"
+  },
+  "keywords": ["agent-skill", "x", "twitter", "screenshot", "image", "post-card", "translate", "insight-cards", "curation"]
+}

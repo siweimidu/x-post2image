@@ -1,0 +1,13 @@
+{
+  "__normalized": true,
+  "id": "999000222",
+  "url": "https://x.com/chirpbot/status/999000222",
+  "text": "视频卡片测试：这条推文的媒体是视频，应该出现播放按钮。",
+  "lang": "zh",
+  "createdAt": "2026-11-04T15:00:00.000Z",
+  "author": {"name": "Chirp Bot", "screenName": "chirpbot", "avatarUrl": "https://pbs.twimg.com/profile_images/1909090851592273920/UutmZxGI_400x400.jpg", "verified": true},
+  "metrics": {"replies": 12, "reposts": 34, "likes": 5678, "views": 90000},
+  "media": [{"type": "video", "url": "https://pbs.twimg.com/media/BhxWutnCEAAtEQ6.jpg?name=small", "videoUrl": "https://video.twimg.com/x.mp4", "width": 1280, "height": 720, "alt": ""}],
+  "quote": null,
+  "poll": null
+}

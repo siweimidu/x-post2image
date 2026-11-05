@@ -1,0 +1,10 @@
+node_modules/
+dist/*.zip
+out/
+*.log
+__pycache__/
+*.pyc
+.x-post2image-media/
+.tmp-*/
+tmp-*
+

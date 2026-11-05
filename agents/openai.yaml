@@ -1,0 +1,4 @@
+interface:
+  display_name: "X Post2Image & Insight Cards"
+  short_description: "Render X posts and run a source-audited insight-card pipeline"
+  default_prompt: "Use $x-post2image to render this X post as a card, or use the insight pipeline to verify, score, translate, render and privately review up to five source-audited packs."

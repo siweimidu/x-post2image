@@ -1,0 +1,22 @@
+{
+  "__normalized": true,
+  "id": "999000111",
+  "url": "https://x.com/chirpbot/status/999000111",
+  "text": "刚刚把 x-post2image 做成了 Agent Skill 🎉\n任何人都能用一条命令把推文变成高清卡片。\n\n项目地址：https://github.com/Yunshiro/x-post2image\n感谢 @Yunshiro 的开源！ #AgentSkills #开源",
+  "lang": "zh",
+  "createdAt": "2026-11-04T15:00:00.000Z",
+  "author": {"name": "Chirp Bot", "screenName": "chirpbot", "avatarUrl": "https://pbs.twimg.com/profile_images/1909090851592273920/UutmZxGI_400x400.jpg", "verified": true, "protected": false},
+  "metrics": {"replies": 12800, "reposts": 34500, "likes": 128000, "views": 2400000, "quotes": 320, "bookmarks": 560},
+  "media": [
+    {"type": "photo", "url": "https://pbs.twimg.com/media/BhxWutnCEAAtEQ6.jpg?name=small", "width": 1920, "height": 1080, "alt": ""},
+    {"type": "photo", "url": "https://pbs.twimg.com/media/BhxWutnCEAAtEQ6.jpg?name=small", "width": 1080, "height": 1080, "alt": ""},
+    {"type": "photo", "url": "https://pbs.twimg.com/media/BhxWutnCEAAtEQ6.jpg?name=small", "width": 1080, "height": 1350, "alt": ""},
+    {"type": "photo", "url": "https://pbs.twimg.com/media/BhxWutnCEAAtEQ6.jpg?name=small", "width": 1080, "height": 1080, "alt": ""}
+  ],
+  "quote": {
+    "__normalized": true, "id": "999000110", "text": "这是被引用的推文，里面也有一段说明文字。", "lang": "zh", "createdAt": "2026-11-03T10:30:00.000Z",
+    "author": {"name": "Yunshiro", "screenName": "Yunshiro", "avatarUrl": "https://pbs.twimg.com/profile_images/1909090851592273920/UutmZxGI_400x400.jpg", "verified": false},
+    "metrics": {"replies": 0, "reposts": 0, "likes": 0, "views": 0}, "media": [], "quote": null, "poll": null
+  },
+  "poll": {"options": [{"label": "非常好用", "votes": 820, "percentage": 62}, {"label": "还在观望", "votes": 300, "percentage": 23}, {"label": "不太需要", "votes": 200, "percentage": 15}], "totalVotes": 1320}
+}
