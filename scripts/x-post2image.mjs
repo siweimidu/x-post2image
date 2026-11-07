@@ -8,7 +8,7 @@ import { renderCardHtml, applyMetricOverrides } from "./lib/render.mjs";
 import { embedMedia } from "./lib/media.mjs";
 import { cacheImageFile } from "./lib/media.mjs";
 import { translateText, translateTweet } from "./lib/translate.mjs";
-import { buildLongCardData, renderLongCard } from "./long.mjs";
+import { buildArticleCardData, buildLongCardData, renderArticleCard, renderLongCard } from "./long.mjs";
 import {
   defaultCacheDir,
   fetchTweet,
@@ -67,9 +67,10 @@ APPEARANCE
       --no-avatar        Hide the author avatar
       --no-webfont       Do not load X's Chirp webfont (faster offline renders)
       --css <file>       Append custom CSS to the card
-      --layout <name>    auto | single | spread (auto uses a two-page article
-                         spread for long posts; default auto)
-      --long-threshold <n>  Character count that triggers spread layout (default 360)
+      --layout <name>    auto | single | tall | spread (auto uses a tall
+                         X-article card for long posts; spread = optional
+                         two-page article layout)
+      --long-threshold <n>  Character count that triggers tall layout (default 360)
       --long-height <px>  Spread card height (default 640/760/900 by text length)
       --title <text>      Optional spread-page title
       --subtitle <text>   Optional spread-page subtitle
@@ -275,8 +276,8 @@ function parseArgv(argv) {
   if (!["auto", "playwright", "chrome"].includes(options.engine)) {
     throw usageError(`--engine must be auto, playwright or chrome (got "${options.engine}")`);
   }
-  if (!["auto", "single", "spread"].includes(options.layout)) {
-    throw usageError(`--layout must be auto, single or spread (got "${options.layout}")`);
+  if (!["auto", "single", "tall", "spread"].includes(options.layout)) {
+    throw usageError(`--layout must be auto, single, tall or spread (got "${options.layout}")`);
   }
   options.longThreshold = clampInteger(options.longThreshold, 80, 10_000, "--long-threshold");
   if (options.frame && !["none", "card"].includes(options.frame)) {
@@ -343,9 +344,9 @@ async function renderOne(input, options, sharedCss) {
     ? path.resolve(options.out)
     : defaultOutputPath(tweet, options.outDir);
   const textLength = String(tweet.text || "").length;
-  const useSpread = options.layout === "spread" || (options.layout === "auto" && textLength >= options.longThreshold);
+  const useLongLayout = options.layout === "spread" || options.layout === "tall" || (options.layout === "auto" && textLength >= options.longThreshold);
 
-  if (useSpread) {
+  if (useLongLayout) {
     if (options.htmlOnly) {
       throw new TweetError("--html-only is only supported for single-page cards; use --layout single.");
     }
@@ -357,19 +358,51 @@ async function renderOne(input, options, sharedCss) {
           })) || ""
         : originalAvatarUrl
       : "";
-    const longData = buildLongCardData(tweet, {
+    if (options.layout === "spread") {
+      const longData = buildLongCardData(tweet, {
+        text: tweet.text,
+        title: options.title,
+        subtitle: options.subtitle,
+        avatar: avatarFile,
+        translated: Boolean(tweet.translation?.changed),
+      });
+      const longHeight = options.longHeight || (textLength > 1200 ? 1100 : textLength > 800 ? 900 : textLength > 500 ? 800 : 720);
+      const longShot = await renderLongCard(longData, {
+        out: outputPath,
+        python: options.python,
+        width: 1080,
+        height: longHeight,
+        scale: 1,
+      });
+      return {
+        ok: true,
+        id: tweet.id,
+        url: tweet.url,
+        author: tweet.author,
+        text: tweet.text,
+        metrics: tweet.metrics,
+        theme: "paper",
+        layout: "two-page-spread",
+        title: longShot.title,
+        out: longShot.output,
+        html: null,
+        width: longShot.width,
+        height: longShot.height,
+        engine: "pillow-long-card",
+        source: tweet._meta?.source || "unknown",
+        translation: tweet.translation || null,
+        bytes: null,
+      };
+    }
+    const articleData = buildArticleCardData(tweet, {
       text: tweet.text,
-      title: options.title,
-      subtitle: options.subtitle,
       avatar: avatarFile,
       translated: Boolean(tweet.translation?.changed),
     });
-    const longHeight = options.longHeight || (textLength > 800 ? 900 : textLength > 500 ? 800 : 720);
-    const longShot = await renderLongCard(longData, {
+    const articleShot = await renderArticleCard(articleData, {
       out: outputPath,
       python: options.python,
       width: 1080,
-      height: longHeight,
       scale: 1,
     });
     return {
@@ -379,14 +412,13 @@ async function renderOne(input, options, sharedCss) {
       author: tweet.author,
       text: tweet.text,
       metrics: tweet.metrics,
-      theme: "paper",
-      layout: "two-page-spread",
-      title: longShot.title,
-      out: longShot.output,
+      theme: "x-article",
+      layout: "x-article-tall",
+      out: articleShot.output,
       html: null,
-      width: longShot.width,
-      height: longShot.height,
-      engine: "pillow-long-card",
+      width: articleShot.width,
+      height: articleShot.height,
+      engine: "pillow-article-card",
       source: tweet._meta?.source || "unknown",
       translation: tweet.translation || null,
       bytes: null,

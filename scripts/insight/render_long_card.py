@@ -21,12 +21,12 @@ from render_card import find_fonts, load_font, rebalance_cjk, wrap_words
 
 
 PAPER = (255, 255, 255)
-DESK = (237, 240, 242)
-INK = (17, 20, 24)
-MUTED = (91, 101, 115)
-LINE = (231, 235, 240)
-TABLE_HEAD = (243, 247, 252)
-TABLE_BORDER = (226, 232, 240)
+DESK = (255, 255, 255)
+INK = (15, 20, 25)
+MUTED = (83, 100, 113)
+LINE = (239, 243, 244)
+TABLE_HEAD = (247, 249, 249)
+TABLE_BORDER = (207, 217, 222)
 
 
 def has_cjk(text: str) -> bool:
@@ -252,6 +252,12 @@ def draw_verified_badge(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) ->
     )
 
 
+def draw_more_icon(draw: ImageDraw.ImageDraw, x: int, y: int, size: int, scale: int) -> None:
+    radius = max(1, int(2 * scale))
+    for offset in (0, int(size * 0.36), int(size * 0.72)):
+        draw.ellipse((x + offset, y, x + offset + radius * 2, y + radius * 2), fill=MUTED)
+
+
 def compact_count(value) -> str:
     try:
         number = float(value or 0)
@@ -264,6 +270,18 @@ def compact_count(value) -> str:
     if number >= 10000:
         return f"{number / 10000:.1f}".rstrip("0").rstrip(".") + "万"
     return str(int(number))
+
+
+def action_count(value) -> str:
+    try:
+        number = int(float(value or 0))
+    except (TypeError, ValueError):
+        return ""
+    if number <= 0:
+        return ""
+    if number < 10000:
+        return f"{number:,}"
+    return compact_count(number)
 
 
 def draw_action_icon(draw: ImageDraw.ImageDraw, kind: str, x: int, y: int, size: int, scale: int) -> None:
@@ -311,10 +329,10 @@ def draw_action_bar(
     icon_font,
 ) -> None:
     items = [
-        ("reply", compact_count(metrics.get("replies"))),
-        ("repost", compact_count(metrics.get("reposts"))),
-        ("like", compact_count(metrics.get("likes"))),
-        ("bookmark", ""),
+        ("reply", action_count(metrics.get("replies"))),
+        ("repost", action_count(metrics.get("reposts"))),
+        ("like", action_count(metrics.get("likes"))),
+        ("bookmark", action_count(metrics.get("bookmarks"))),
         ("share", ""),
     ]
     step = width / len(items)
@@ -330,58 +348,49 @@ def render_long_card(data: dict, output_path: Path, *, width: int = 1080, height
     W, H = width * scale, height * scale
     image = Image.new("RGB", (W, H), DESK)
     draw = ImageDraw.Draw(image)
-    margin = int(24 * scale)
-    radius = int(18 * scale)
-    draw.rounded_rectangle((margin, margin, W - margin, H - margin), radius=radius, fill=PAPER)
-    # Subtle vertical seam between the two pages.
-    draw.line((int(540 * scale), int(40 * scale), int(540 * scale), H - int(40 * scale)), fill=LINE, width=1)
+    # X-style white canvas with a hairline page seam, not a paper mockup.
+    draw.line((int(540 * scale), int(24 * scale), int(540 * scale), H - int(24 * scale)), fill=LINE, width=1)
 
     latin_regular, latin_bold, cjk_regular = find_fonts()
     cjk_bold_spec = cjk_bold(cjk_regular)
     body_size = int(data.get("body_size", 16) * scale)
-    title_size = int(data.get("title_size", 27) * scale)
-    heading_size = int(19 * scale)
-    name_size = int(14 * scale)
-    meta_size = int(10 * scale)
+    title_size = int(data.get("title_size", 25) * scale)
+    heading_size = int(18 * scale)
+    name_size = int(15 * scale)
+    meta_size = int(15 * scale)
     body_font = load_font(cjk_regular, body_size)
     title_font = load_font(cjk_bold_spec, title_size)
     heading_font = load_font(cjk_bold_spec, heading_size)
-    table_header_font = load_font(cjk_bold_spec, int(15 * scale))
+    table_header_font = load_font(cjk_bold_spec, int(14 * scale))
     name_font = load_font(cjk_regular if has_cjk(str(data.get("author", ""))) else latin_bold, name_size)
     meta_font = load_font(cjk_regular, meta_size)
-    line_height = int(28 * scale)
-    action_font = load_font(cjk_regular, int(12 * scale))
-    action_icon_font = load_font(latin_regular, int(16 * scale))
+    line_height = int(27 * scale)
+    action_font = load_font(cjk_regular, int(13 * scale))
+    action_icon_font = load_font(latin_regular, int(18 * scale))
 
     left_x = int(48 * scale)
     left_width = int(464 * scale)
     right_x = int(562 * scale)
     right_width = int(464 * scale)
 
-    # Header: real X avatar, author, handle, optional verified badge.
-    avatar = avatar_image(data.get("avatar"), str(data.get("author", "")), int(36 * scale), name_font, scale)
-    image.paste(avatar, (left_x, int(42 * scale)), avatar)
-    draw.text((int(94 * scale), int(47 * scale)), str(data.get("author", "")), font=name_font, fill=INK)
+    # X tweet header: real avatar, name, verified badge, handle, more dots.
+    avatar = avatar_image(data.get("avatar"), str(data.get("author", "")), int(40 * scale), name_font, scale)
+    image.paste(avatar, (left_x, int(34 * scale)), avatar)
+    draw.text((int(98 * scale), int(39 * scale)), str(data.get("author", "")), font=name_font, fill=INK)
     if data.get("verified"):
         draw_verified_badge(
             draw,
-            int(94 * scale) + int(draw.textlength(str(data.get("author", "")), font=name_font)) + int(5 * scale),
-            int(49 * scale),
-            int(13 * scale),
+            int(98 * scale) + int(draw.textlength(str(data.get("author", "")), font=name_font)) + int(5 * scale),
+            int(41 * scale),
+            int(14 * scale),
         )
     draw.text(
-        (int(94 * scale), int(67 * scale)),
+        (int(98 * scale), int(60 * scale)),
         str(data.get("handle", "")),
-        font=load_font(cjk_regular if has_cjk(str(data.get("handle", ""))) else latin_regular, int(11 * scale)),
+        font=load_font(cjk_regular if has_cjk(str(data.get("handle", ""))) else latin_regular, int(14 * scale)),
         fill=MUTED,
     )
-    top_right = str(data.get("top_right", "X"))
-    if top_right.strip().upper() == "X":
-        x_logo_font = load_font(latin_bold, int(24 * scale))
-        draw.text((W - int(72 * scale) - draw.textlength("X", font=x_logo_font), int(38 * scale)), "X", font=x_logo_font, fill=INK)
-    else:
-        top_right_font = load_font(latin_regular, int(10.5 * scale))
-        draw.text((W - int(72 * scale) - draw.textlength(top_right, font=top_right_font), int(51 * scale)), top_right, font=top_right_font, fill=MUTED)
+    draw_more_icon(draw, W - int(64 * scale), int(43 * scale), int(18 * scale), scale)
 
     # Left page title and subtitle.
     title = str(data.get("title", "")).strip()
@@ -410,20 +419,9 @@ def render_long_card(data: dict, output_path: Path, *, width: int = 1080, height
         heading_font=heading_font,
         bold_font=table_header_font,
         line_height=line_height,
-        bottom=int((height - 135) * scale),
+        bottom=int((height - 175) * scale),
         scale=scale,
     )
-    if data.get("show_actions", True):
-        draw_action_bar(
-            draw,
-            data.get("metrics", {}),
-            left_x,
-            H - int(105 * scale),
-            left_width,
-            scale,
-            action_font,
-            action_icon_font,
-        )
 
     # Right page.
     draw_blocks(
@@ -436,24 +434,42 @@ def render_long_card(data: dict, output_path: Path, *, width: int = 1080, height
         heading_font=heading_font,
         bold_font=table_header_font,
         line_height=line_height,
-        bottom=int((height - 60) * scale),
+        bottom=int((height - 175) * scale),
         scale=scale,
     )
 
-    # Footer.
-    footer_font = load_font(latin_regular, int(8.5 * scale))
+    # X-style meta line and action bar across the full card width.
+    action_y = H - int(92 * scale)
+    draw.line((left_x, action_y - int(28 * scale), W - int(48 * scale), action_y - int(28 * scale)), fill=LINE, width=1)
+    meta_text = str(data.get("meta_text", "")).strip()
+    if not meta_text:
+        meta_text = "  ·  ".join(part for part in [str(data.get("date", "")).strip(), str(data.get("views_display", "")).strip()] if part)
+    if meta_text:
+        draw.text((left_x, action_y - int(25 * scale)), meta_text, font=meta_font, fill=MUTED)
+    if data.get("show_actions", True):
+        draw_action_bar(
+            draw,
+            data.get("metrics", {}),
+            left_x,
+            action_y,
+            W - int(96 * scale),
+            scale,
+            action_font,
+            action_icon_font,
+        )
+
+    # Tiny attribution footer, below the action row.
+    footer_font = load_font(latin_regular, int(8 * scale))
     source = str(data.get("source", "")).strip()
-    date_text = str(data.get("date", "")).strip()
-    footer = "  ".join(part for part in [source, date_text] if part)
-    if footer:
-        draw.text((left_x, H - int(42 * scale)), footer, font=footer_font, fill=(122, 132, 147))
-    labels = data.get("bottom_right", ["Excerpt", "AI 翻译"])
+    if source:
+        draw.text((left_x, H - int(30 * scale)), source, font=footer_font, fill=(122, 132, 147))
+    labels = data.get("bottom_right", [])
     if isinstance(labels, str):
         labels = [labels]
     for index, label in enumerate(labels[:2]):
-        label_font = load_font(cjk_regular if has_cjk(str(label)) else latin_regular, int(8.5 * scale))
+        label_font = load_font(cjk_regular if has_cjk(str(label)) else latin_regular, int(8 * scale))
         draw.text(
-            (W - int(48 * scale) - draw.textlength(str(label), font=label_font), H - int(55 * scale) + index * int(14 * scale)),
+            (W - int(48 * scale) - draw.textlength(str(label), font=label_font), H - int(42 * scale) + index * int(14 * scale)),
             str(label),
             font=label_font,
             fill=(122, 132, 147),

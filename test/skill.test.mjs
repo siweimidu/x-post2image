@@ -24,6 +24,7 @@ test("documented files exist", async () => {
     "scripts/x-post2image.mjs",
     "scripts/long.mjs",
     "scripts/insight/render_long_card.py",
+    "scripts/insight/render_article_card.py",
     "scripts/lib/tweet.mjs",
     "scripts/lib/render.mjs",
     "scripts/lib/screenshot.mjs",

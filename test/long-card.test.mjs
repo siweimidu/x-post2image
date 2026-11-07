@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildLongCardData } from "../scripts/long.mjs";
+import { buildArticleCardData, buildLongCardData } from "../scripts/long.mjs";
 import { pngSize } from "../scripts/lib/screenshot.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,6 +38,36 @@ test("Pillow long-card renderer outputs 1080x720 spread", async () => {
     assert.deepEqual(size, { width: 1080, height: 720 });
     const meta = JSON.parse(result.stdout);
     assert.equal(meta.layout, "two-page-spread");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("Pillow article renderer outputs a tall X card with code block", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "x2i-article-render-"));
+  try {
+    const tweet = JSON.parse(readFileSync(path.join(root, "test", "fixtures", "long-code-tweet.json"), "utf8"));
+    const data = buildArticleCardData(tweet, {
+      text: tweet.text,
+      avatar: path.join(root, "test", "fixtures", "test-avatar.png"),
+      translated: true,
+    });
+    const input = path.join(dir, "article.json");
+    const output = path.join(dir, "article.png");
+    await (await import("node:fs/promises")).writeFile(input, JSON.stringify(data), "utf8");
+    const result = spawnSync(python, [
+      path.join(root, "scripts", "insight", "render_article_card.py"),
+      "--input",
+      input,
+      "--output",
+      output,
+    ], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const meta = JSON.parse(result.stdout);
+    assert.equal(meta.layout, "x-article-tall");
+    const size = pngSize(output);
+    assert.equal(size.width, 1080);
+    assert.ok(size.height > 600);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

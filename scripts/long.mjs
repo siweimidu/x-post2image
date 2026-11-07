@@ -72,6 +72,9 @@ export function buildLongCardData(tweet, options = {}) {
   }
 
   const metrics = tweet.metrics || {};
+  const viewsText = formatCompact(metrics.views, "zh-CN");
+  const dateText = tweet.createdAt ? formatDate(tweet.createdAt, "zh-CN") : "";
+  const metaText = [dateText, viewsText ? `${viewsText} 查看` : ""].filter(Boolean).join(" · ");
   const values = [
     ["互动数据", "评论", formatCompact(metrics.replies, "zh-CN") || "—"],
     ["互动数据", "转发", formatCompact(metrics.reposts, "zh-CN") || "—"],
@@ -96,7 +99,7 @@ export function buildLongCardData(tweet, options = {}) {
     rightBlocks.push({
       type: "callout",
       heading: "记住重要信息",
-      text: String(options.remember || right[0]?.text || left[0]?.text || "").slice(0, 140),
+      text: String(options.remember || right[0]?.text || left[0]?.text || "").slice(0, 60),
     });
   }
 
@@ -114,15 +117,91 @@ export function buildLongCardData(tweet, options = {}) {
       reposts: metrics.reposts,
       likes: metrics.likes,
       views: metrics.views,
+      bookmarks: metrics.bookmarks,
     },
     source: tweet.url || "",
     date: tweet.createdAt ? formatDate(tweet.createdAt, "zh-CN").split(" · ")[1] || "" : "",
+    meta_text: metaText,
+    views_display: viewsText ? `${viewsText} 查看` : "",
     top_right: "X",
     bottom_right: ["Excerpt", options.translated ? "AI 翻译" : "X Post"],
     title_size: title.length > 38 ? 24 : 27,
-    body_size: options.bodySize || (text.length > 900 ? 14 : text.length > 650 ? 15 : 16),
+    body_size: options.bodySize || (text.length > 1200 ? 13 : text.length > 900 ? 14 : text.length > 650 ? 15 : 16),
     ...(options.extra || {}),
   };
+}
+
+function splitCodeSegments(text) {
+  const segments = [];
+  const pattern = /```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g;
+  let cursor = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > cursor) segments.push({ type: "text", text: text.slice(cursor, match.index) });
+    segments.push({ type: "code", language: match[1], text: match[2].replace(/\n$/, "") });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) segments.push({ type: "text", text: text.slice(cursor) });
+  return segments.filter((segment) => segment.text.trim());
+}
+
+function longDate(dateValue) {
+  if (!dateValue) return "";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date).replace("T", " ");
+}
+
+export function buildArticleCardData(tweet, options = {}) {
+  const text = String(options.text || tweet.text || "").trim();
+  return {
+    author: tweet.author?.name || "",
+    handle: tweet.author?.screenName ? `@${tweet.author.screenName}` : "",
+    avatar: options.avatar || "",
+    verified: Boolean(tweet.author?.verified),
+    text,
+    segments: splitCodeSegments(text),
+    date_display: longDate(tweet.createdAt),
+    timezone_label: "UTC+8",
+    translation_label: options.translated ? "AI 翻译" : "原文",
+    body_size: options.bodySize || (text.length > 900 ? 30 : 34),
+    line_height: options.lineHeight || (text.length > 900 ? 46 : 52),
+  };
+}
+
+export async function renderArticleCard(data, { out, python = process.env.PYTHON || "python", width = 1080, scale = 1 } = {}) {
+  const output = path.resolve(out);
+  await mkdir(path.dirname(output), { recursive: true });
+  const inputPath = `${output}.input.json`;
+  await writeFile(inputPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  try {
+    const result = spawnSync(python, [
+      path.join(here, "insight", "render_article_card.py"),
+      "--input",
+      inputPath,
+      "--output",
+      output,
+      "--width",
+      String(width),
+      "--scale",
+      String(scale),
+    ], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+    if (result.status !== 0) {
+      throw new Error(`${python} failed: ${(result.stderr || result.stdout || "").slice(-500)}`);
+    }
+    const match = `${result.stdout || ""}`.match(/\{[\s\S]*\}\s*$/);
+    if (!match) throw new Error(`Could not parse article-card renderer output: ${result.stdout}`);
+    return JSON.parse(match[0]);
+  } finally {
+    await rm(inputPath, { force: true }).catch(() => {});
+  }
 }
 
 export async function renderLongCard(data, { out, python = process.env.PYTHON || "python", width = 1080, height = 720, scale = 1 } = {}) {
@@ -226,7 +305,7 @@ async function main() {
     avatar,
     translated,
   });
-  const height = options.height || (text.length > 800 ? 900 : text.length > 500 ? 800 : 720);
+  const height = options.height || (text.length > 1200 ? 1100 : text.length > 800 ? 900 : text.length > 500 ? 800 : 720);
   const meta = await renderLongCard(data, {
     out: options.out,
     python: options.python,

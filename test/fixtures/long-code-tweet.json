@@ -1,0 +1,29 @@
+{
+  "__normalized": true,
+  "id": "long-code-001",
+  "url": "https://x.com/juberti/status/1234567890",
+  "text": "我们刚刚将全新的 GPT-Live outbound telephony API 正式发布（GA），开发者现在可以通过任意 SIP trunk 提供商（例如 Telnyx 或 Twilio），从其 Live voice agent 拨打电话。\n\n通话可以使用 HD Voice，并且能够发送和接收按键事件（DTMF）。\n\n```bash\ncurl https://api.openai.com/v1/live/sessions \\\n  -H \"Authorization: Bearer $OPENAI_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  --data-binary @-\n```",
+  "lang": "zh",
+  "createdAt": "2026-11-05T06:01:00.000Z",
+  "author": {
+    "name": "Justin Uberti",
+    "screenName": "juberti",
+    "avatarUrl": "test/fixtures/test-avatar.png",
+    "verified": true
+  },
+  "metrics": {
+    "replies": 12,
+    "reposts": 24,
+    "likes": 2261,
+    "views": 210000,
+    "bookmarks": 531
+  },
+  "media": [],
+  "quote": null,
+  "poll": null,
+  "translation": {
+    "changed": true,
+    "from": "en",
+    "to": "zh-CN"
+  }
+}
