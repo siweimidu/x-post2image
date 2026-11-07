@@ -1,0 +1,54 @@
+{
+  "author": "Meta AI Research",
+  "handle": "Meta Superintelligence Labs",
+  "avatar": "test/fixtures/test-avatar.png",
+  "title": "将专用模型引入 Muse 和 Meta AI",
+  "subtitle": "通过 Muse 和 Meta AI 的专用模型，让每个人都能使用关键前沿能力",
+  "left_blocks": [
+    {
+      "type": "paragraph",
+      "text": "几周前，我们推出了 Muse Wonder 系列，这是我们迄今为止能力最强的模型，在个人和专业 Agent 任务中表现达到业界领先水平。今天，我们推出使用 Muse Wonder 训练的现有模型专用版本，并将其向 Muse 和 Meta AI 用户推出。"
+    },
+    {
+      "type": "heading",
+      "text": "将关键前沿能力引入 Muse 和 Meta AI"
+    },
+    {
+      "type": "paragraph",
+      "text": "我们将 Muse Wonder 设计为具备处理工作和日常生活中复杂任务的前沿能力。我们还将它改进了 Muse 和 Meta AI 背后的模型，让更多人能够使用其中一些能力。"
+    }
+  ],
+  "right_blocks": [
+    {
+      "type": "heading",
+      "text": "个人超级智能指数"
+    },
+    {
+      "type": "paragraph",
+      "text": "当前和上一代 Muse 模型在个人超级智能指数上的得分：47% 和 38%.. 指数得分"
+    },
+    {
+      "type": "table",
+      "headers": ["系列", "衡量指标", "数值"],
+      "rows": [
+        ["当前 Muse 模型", "模型", "当前 Muse 模型"],
+        ["当前 Muse 模型", "指数得分", "47%"],
+        ["上一代 Muse 模型", "模型", "上一代 Muse 模型"],
+        ["上一代 Muse 模型", "指数得分", "38%"]
+      ],
+      "col_widths": [2, 2, 2]
+    },
+    {
+      "type": "heading",
+      "text": "记住重要信息"
+    },
+    {
+      "type": "paragraph",
+      "text": "随着 Muse Wonder 的推出，我们引入了 Active Memory 和 Active Focus。我们正将这两项功能引入 Muse 和 Meta AI 的专用模型。..."
+    }
+  ],
+  "source": "https://research.meta.ai/blog/specialized-models-for-muse-and-meta-ai",
+  "date": "2026-11-06",
+  "top_right": "Web",
+  "bottom_right": ["Excerpt", "AI 翻译"]
+}

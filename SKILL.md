@@ -1,9 +1,9 @@
 ---
 name: x-post2image
-description: Use when the user wants an X/Twitter post turned into an image — "tweet screenshot", "save this tweet as a PNG", "把推文做成图片/截图/长图/卡片", "post card for a slide", "archive this X post", "translate this tweet / 翻译这条推文" — or needs a source-audited content pipeline that discovers, verifies, scores, deduplicates, translates, typesets, captions and privately delivers X posts. Renders any public x.com / twitter.com status URL into a high-resolution PNG through one self-contained Node CLI; includes an optional Pillow insight-card pipeline with adaptive bilingual layout and WeChat review delivery.
+description: Use when the user wants an X/Twitter post turned into an image — "tweet screenshot", "save this tweet as a PNG", "把推文做成图片/截图/长图/卡片", "post card for a slide", "archive this X post", "translate this tweet / 翻译这条推文" — or needs a source-audited content pipeline that discovers, verifies, scores, deduplicates, translates, typesets, captions and privately delivers X posts. Renders any public x.com / twitter.com status URL into a high-resolution PNG, with automatic two-page spread layout for long posts, through one self-contained Node CLI; includes an optional Pillow insight-card pipeline with adaptive bilingual layout and WeChat review delivery.
 license: MIT
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
   upstream: "https://github.com/Yunshiro/x-post2image"
   upstream_insight: "https://github.com/ljunnan24-hash/x-insight-cards"
   compatibility: "Node.js >= 18; Chrome/Chromium or Playwright; Python 3.10+ + Pillow for insight rendering"
@@ -61,9 +61,17 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 | Show translation + original | `node scripts/x-post2image.mjs <url> --translate zh-CN --bilingual` |
 | Smaller card, 1× pixels | `node scripts/x-post2image.mjs <url> --width 500 --scale 1` |
 | Rounded card on transparent background | `node scripts/x-post2image.mjs <url> --frame card --transparent` |
+| Long post → two-page spread | `node scripts/x-post2image.mjs <url> --layout spread --out long.png` |
+| Force single page | `node scripts/x-post2image.mjs <url> --layout single` |
 | Batch several posts | `node scripts/x-post2image.mjs <url1> <url2> --out-dir out/` |
 | HTML only (no PNG) | `node scripts/x-post2image.mjs <url> --html-only --html card.html` |
 | Check the machine | `node scripts/x-post2image.mjs --doctor` |
+
+## Long posts: two-page spread
+
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **two-page article spread** (1080 px wide) modeled on the supplied reference: a white paper card on a grey desk, left editorial page and right excerpt page, optional metrics table and callout. The spread uses the real author avatar (no initials placeholder when a real avatar is obtainable), a small X mark, a subtle page seam, an X-style action row, and a source/date footer. It is rendered by the deterministic Pillow renderer (`scripts/insight/render_long_card.py`), with text wrapped to stay inside the card.
+
+Use `--layout spread` to force it on a shorter post, `--layout single` to force the normal card, and `--long-height`/`--title`/`--subtitle` to control the spread. `--html-only` is not supported for spread cards.
 
 ## Two modes
 
@@ -141,6 +149,11 @@ See `references/insight-discovery.md`, `insight-caption.md`, `insight-scheduling
 | `--no-metrics` | Hide date, views and action bar | off |
 | `--no-avatar` | Hide the author avatar | off |
 | `--no-webfont` | Skip X's Chirp webfont (fast offline renders) | auto |
+| `--layout <name>` | `auto` / `single` / `spread` | `auto` |
+| `--long-threshold <n>` | Character count that triggers spread | `360` |
+| `--long-height <px>` | Spread height; auto if omitted | 640/760/900 |
+| `--title <text>` / `--subtitle <text>` | Spread headings | derived from post |
+| `--python <bin>` | Python with Pillow for spread | `python` |
 | `--css <file>` | Append custom CSS | — |
 | `--translate <lang>` | Translate body, quote and poll text into `lang` (`auto` = `--lang` or zh-CN) | off |
 | `--bilingual` | Show the original text under the translation | off |
@@ -208,6 +221,7 @@ Start with `node scripts/x-post2image.mjs --doctor` whenever the environment is 
 | Path | Purpose |
 |---|---|
 | `scripts/x-post2image.mjs` | CLI entry point |
+| `scripts/long.mjs` | Long-post two-page spread builder/renderer |
 | `scripts/lib/tweet.mjs` | URL parsing, fetching, normalization, cache |
 | `scripts/lib/render.mjs` | X-style HTML/CSS card renderer |
 | `scripts/lib/screenshot.mjs` | Playwright/Chrome screenshot engines |
@@ -215,6 +229,8 @@ Start with `node scripts/x-post2image.mjs --doctor` whenever the environment is 
 | `scripts/lib/translate.mjs` | MyMemory/Google translation and cache |
 | `scripts/lib/format.mjs` | X-style compact numbers and dates |
 | `scripts/insight.mjs` | Insight pipeline router (search/verify/rank/render/qa/pack/daily/history) |
+| `scripts/insight/render_long_card.py` | Journal/article two-page spread renderer |
+| `scripts/insight/render_card.py` | Adaptive bilingual insight-card renderer |
 | `scripts/insight/` | Candidate verification, scoring, Pillow renderer, QA, history, scheduling |
 | `scripts/insight/delivery/` | Optional WeChat iLink / File Transfer Assistant delivery |
 | `references/insight-*.md` | Discovery, scoring, typography, caption, scheduling and QA rules |

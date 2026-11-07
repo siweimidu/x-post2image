@@ -6,7 +6,9 @@ import process from "node:process";
 import { parseCount } from "./lib/format.mjs";
 import { renderCardHtml, applyMetricOverrides } from "./lib/render.mjs";
 import { embedMedia } from "./lib/media.mjs";
+import { cacheImageFile } from "./lib/media.mjs";
 import { translateText, translateTweet } from "./lib/translate.mjs";
+import { buildLongCardData, renderLongCard } from "./long.mjs";
 import {
   defaultCacheDir,
   fetchTweet,
@@ -26,7 +28,7 @@ import {
   renderScreenshot,
 } from "./lib/screenshot.mjs";
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 const HELP = `x-post2image ${VERSION} — render an X/Twitter post as a PNG card
 
@@ -65,6 +67,13 @@ APPEARANCE
       --no-avatar        Hide the author avatar
       --no-webfont       Do not load X's Chirp webfont (faster offline renders)
       --css <file>       Append custom CSS to the card
+      --layout <name>    auto | single | spread (auto uses a two-page article
+                         spread for long posts; default auto)
+      --long-threshold <n>  Character count that triggers spread layout (default 360)
+      --long-height <px>  Spread card height (default 640/760/900 by text length)
+      --title <text>      Optional spread-page title
+      --subtitle <text>   Optional spread-page subtitle
+      --python <bin>     Python with Pillow for spread rendering (default python)
 
 METRICS (design mockups only — never present edits as real data)
       --replies <n>      Override reply count   (accepts 1.2K, 3万, 2亿)
@@ -125,6 +134,12 @@ function parseArgv(argv) {
     showAvatar: true,
     noWebfont: false,
     useWebfont: true,
+    layout: "auto",
+    longThreshold: 360,
+    longHeight: null,
+    title: "",
+    subtitle: "",
+    python: process.env.PYTHON || "python",
     cssFile: null,
     out: null,
     outDir: null,
@@ -169,6 +184,12 @@ function parseArgv(argv) {
     ["--data", "data"],
     ["--translate", "translate"],
     ["--translation-provider", "translationProvider"],
+    ["--layout", "layout"],
+    ["--long-threshold", "longThreshold"],
+    ["--long-height", "longHeight"],
+    ["--title", "title"],
+    ["--subtitle", "subtitle"],
+    ["--python", "python"],
     ["--engine", "engine"],
     ["--chrome", "chrome"],
     ["--timeout", "timeout"],
@@ -254,6 +275,10 @@ function parseArgv(argv) {
   if (!["auto", "playwright", "chrome"].includes(options.engine)) {
     throw usageError(`--engine must be auto, playwright or chrome (got "${options.engine}")`);
   }
+  if (!["auto", "single", "spread"].includes(options.layout)) {
+    throw usageError(`--layout must be auto, single or spread (got "${options.layout}")`);
+  }
+  options.longThreshold = clampInteger(options.longThreshold, 80, 10_000, "--long-threshold");
   if (options.frame && !["none", "card"].includes(options.frame)) {
     throw usageError(`--frame must be none or card (got "${options.frame}")`);
   }
@@ -313,6 +338,61 @@ async function renderOne(input, options, sharedCss) {
   }
 
   tweet = applyMetricOverrides(tweet, options.overrides);
+  const originalAvatarUrl = tweet.author?.avatarUrl || "";
+  const outputPath = options.out
+    ? path.resolve(options.out)
+    : defaultOutputPath(tweet, options.outDir);
+  const textLength = String(tweet.text || "").length;
+  const useSpread = options.layout === "spread" || (options.layout === "auto" && textLength >= options.longThreshold);
+
+  if (useSpread) {
+    if (options.htmlOnly) {
+      throw new TweetError("--html-only is only supported for single-page cards; use --layout single.");
+    }
+    const avatarFile = originalAvatarUrl
+      ? originalAvatarUrl.startsWith("http")
+        ? (await cacheImageFile(originalAvatarUrl, {
+            cacheDir: options.cacheDir,
+            timeout: options.timeout,
+          })) || ""
+        : originalAvatarUrl
+      : "";
+    const longData = buildLongCardData(tweet, {
+      text: tweet.text,
+      title: options.title,
+      subtitle: options.subtitle,
+      avatar: avatarFile,
+      translated: Boolean(tweet.translation?.changed),
+    });
+    const longHeight = options.longHeight || (textLength > 800 ? 900 : textLength > 500 ? 800 : 720);
+    const longShot = await renderLongCard(longData, {
+      out: outputPath,
+      python: options.python,
+      width: 1080,
+      height: longHeight,
+      scale: 1,
+    });
+    return {
+      ok: true,
+      id: tweet.id,
+      url: tweet.url,
+      author: tweet.author,
+      text: tweet.text,
+      metrics: tweet.metrics,
+      theme: "paper",
+      layout: "two-page-spread",
+      title: longShot.title,
+      out: longShot.output,
+      html: null,
+      width: longShot.width,
+      height: longShot.height,
+      engine: "pillow-long-card",
+      source: tweet._meta?.source || "unknown",
+      translation: tweet.translation || null,
+      bytes: null,
+    };
+  }
+
   tweet = await embedMedia(tweet, {
     cacheDir: options.cacheDir,
     offline: options.offline,
@@ -338,9 +418,6 @@ async function renderOne(input, options, sharedCss) {
     useWebfont: options.useWebfont,
   });
 
-  const outputPath = options.out
-    ? path.resolve(options.out)
-    : defaultOutputPath(tweet, options.outDir);
   const htmlPath = options.html ? path.resolve(options.html) : null;
 
   if (options.htmlOnly) {

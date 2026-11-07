@@ -167,6 +167,7 @@ export async function cacheImageFile(url, options = {}) {
     useProxy = true,
   } = options;
   if (!url || typeof url !== "string" || url.startsWith("data:")) return null;
+  if (!/^https?:\/\//i.test(url)) return existsSync(url) ? url : null;
 
   const key = keyFor(url);
   if (cacheDir) {

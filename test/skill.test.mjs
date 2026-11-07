@@ -22,6 +22,8 @@ test("SKILL.md has valid Agent Skills frontmatter", async () => {
 test("documented files exist", async () => {
   const required = [
     "scripts/x-post2image.mjs",
+    "scripts/long.mjs",
+    "scripts/insight/render_long_card.py",
     "scripts/lib/tweet.mjs",
     "scripts/lib/render.mjs",
     "scripts/lib/screenshot.mjs",

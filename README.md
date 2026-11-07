@@ -13,6 +13,7 @@
 - **X 原生观感**：Chirp 字体（不可用时自动回退系统字体）、X 的深色 / dim / 浅色配色、认证徽章、媒体九宫格、引用推文、投票条。
 - **可编辑互动数据**：评论 / 转发 / 点赞 / 曝光数量可覆盖，用于设计稿或演示（不能当作真实数据）。
 - **中文翻译**：`--translate zh-CN` 自动翻译正文、引用推文和投票选项，并在卡片上显示「翻译自英语」；`--bilingual` 可同时保留原文。
+- **长推文两页卡片**：超过阈值（默认 360 字符）自动切换为左右两页 article spread，使用真实头像、X 风格头部/操作栏，文字自动分页不溢出。
 - **完整内容生产线**：`scripts/insight.mjs` 提供选题 URL → 核验 → 100 分评分 → URL/正文哈希去重 → 自适应双语排版 → 中文配文 → QA → 历史记录 → 微信 iLink 私有交付。
 - **媒体本地化 / 离线重渲**：头像和配图下载为 data URL 并缓存，第一次成功后可 `--offline` 重渲。
 - **高清输出**：默认 600 CSS px 宽 × 2 倍像素密度 = 1200 px 宽 PNG。
@@ -40,6 +41,10 @@
 Insight 排版示例（自适应双语 + Pillow 确定性渲染）：
 
 ![Insight 卡片](examples/insight-card.png)
+
+长推文自动左右两页（X 风格头部、真实头像、行动栏、内容不溢出）：
+
+![长推文两页卡片](examples/long-card.png)
 
 ## 安装
 
@@ -89,6 +94,9 @@ node scripts/x-post2image.mjs "https://x.com/TheEllenShow/status/440322224407314
 # 翻译 + 原文对照
 node scripts/x-post2image.mjs "https://x.com/jack/status/20" --out jack-zh.png --translate zh-CN --bilingual
 
+# 强制长推文两页卡片（默认超过 360 字符也会自动触发）
+node scripts/x-post2image.mjs "https://x.com/jack/status/20" --out long.png --layout spread
+
 # 改互动数据（仅用于设计稿）
 node scripts/x-post2image.mjs "https://x.com/jack/status/20" --out mock.png --likes 12K --views 2.4M
 
@@ -114,6 +122,30 @@ node scripts/x-post2image.mjs --doctor
 ```
 
 完整参数见 [`SKILL.md`](SKILL.md) 或 `node scripts/x-post2image.mjs --help`。
+
+## 长推文：左右两页
+
+当推文文本达到 **360 字符**（可用 `--long-threshold` 调整）时，`--layout auto` 会自动从普通 X 单页卡片切换成左右两页的 article spread：
+
+- 左页：真实作者头像、姓名/账号、标题、摘要、正文第一部分；
+- 右页：正文续页 + 互动数据表 + 「记住重要信息」callout；
+- 底部有 X 风格操作栏（评论/转发/点赞/收藏/分享）和来源/日期；
+- 文字自动测量分页、到页面底部自动截断保护，不溢出卡片；
+- 使用真实头像（而不是首字母/生成头像）；头像缺失时才使用简洁占位。
+
+```bash
+# 自动：超过 360 字符走两页
+node scripts/x-post2image.mjs "<url>" --translate zh-CN --out long.png
+
+# 强制两页 / 强制单页
+node scripts/x-post2image.mjs "<url>" --layout spread --out long.png
+node scripts/x-post2image.mjs "<url>" --layout single --out single.png
+
+# 手动指定高度（默认 720，长文 800/900）
+node scripts/x-post2image.mjs "<url>" --layout spread --long-height 860 --out long.png
+```
+
+两页卡由 Pillow 确定性渲染，需要 Python 3.10+ 和 Pillow（见 `requirements.txt`）。
 
 ## Insight 内容生产线
 
@@ -207,6 +239,7 @@ x-post2image/
 ├── requirements.txt         # Insight 渲染器 Pillow 依赖
 ├── scripts/
 │   ├── x-post2image.mjs     # 单条推文原生卡片 CLI
+│   ├── long.mjs             # 长推文左右两页卡片
 │   ├── insight.mjs          # Insight 内容生产线总入口
 │   ├── lib/                 # 取数、媒体缓存、翻译、渲染、截图、格式化
 │   └── insight/             # 核验、评分、Pillow 渲染、QA、打包、每日任务
