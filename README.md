@@ -13,7 +13,7 @@
 - **X 原生观感**：Chirp 字体（不可用时自动回退系统字体）、X 的深色 / dim / 浅色配色、认证徽章、媒体九宫格、引用推文、投票条。
 - **可编辑互动数据**：评论 / 转发 / 点赞 / 曝光数量可覆盖，用于设计稿或演示（不能当作真实数据）。
 - **中文翻译**：`--translate zh-CN` 自动翻译正文、引用推文和投票选项，并在卡片上显示「翻译自英语」；`--bilingual` 可同时保留原文。
-- **长推文 X 风格长卡**：超过阈值（默认 360 字符）自动切换为 X 官方风格长卡，真实头像、X 标、帖子配图、代码块、日期/时区，内容自动撑高不溢出；`--layout spread` 可选两页版。
+- **长推文 X 风格长卡**：超过阈值（默认 360 字符）自动切换为 X 官方风格长卡；当长卡高度超过 `--spread-threshold`（默认 1400px）时，再自动变成左右两张 X 官方卡片（真实头像、官方 X 标、帖子配图、代码块、日期/时区，内容不溢出）。
 - **完整内容生产线**：`scripts/insight.mjs` 提供选题 URL → 核验 → 100 分评分 → URL/正文哈希去重 → 自适应双语排版 → 中文配文 → QA → 历史记录 → 微信 iLink 私有交付。
 - **媒体本地化 / 离线重渲**：头像和配图下载为 data URL 并缓存，第一次成功后可 `--offline` 重渲。
 - **高清输出**：默认 600 CSS px 宽 × 2 倍像素密度 = 1200 px 宽 PNG。
@@ -123,26 +123,23 @@ node scripts/x-post2image.mjs --doctor
 
 完整参数见 [`SKILL.md`](SKILL.md) 或 `node scripts/x-post2image.mjs --help`。
 
-## 长推文：X 风格长卡（可选两页）
+## 长推文：X 风格长卡（自动两页）
 
-当推文文本达到 **360 字符**（可用 `--long-threshold` 调整）时，`--layout auto` 会自动从普通 X 单页卡片切换成 **X 官方风格长卡**，参考你给的示例：
+当推文文本达到 **360 字符**（可用 `--long-threshold` 调整）时，`--layout auto` 会自动从普通 X 单页卡片切换成 **X 官方风格长卡**；如果长卡高度超过 **1400px**（可用 `--spread-threshold` 调整），会自动切换成左右两页的 X 官方卡片：
 
-- 1080px 宽、白色圆角卡片、X 灰色背景；
-- 真实头像、姓名、@handle、认证徽章、右上角 X 标；
-- 大号正文自动向下排版，卡片高度随内容增长，**不溢出、不截断**；
-- 支持代码块；
-- 底部显示日期、时区 pill 与 `AI 翻译`，没有多余的表格或空白。
+- 两张白色圆角卡片并排，每张都有真实头像、姓名、@handle、认证徽章、官方 X 标；
+- 左页放正文前半段和帖子配图，右页继续正文；
+- 底部显示日期、时区 pill 与 `AI 翻译`；
+- 自动按段落切分，不把句子切成两半。
 
 ```bash
-# 自动：超过 360 字符走 X 风格长卡
+# 自动：超过 360 字符走 X 风格长卡，超过 1400px 自动变两页
 node scripts/x-post2image.mjs "<url>" --translate zh-CN --out long.png
 
-# 强制长卡 / 强制单页
-node scripts/x-post2image.mjs "<url>" --layout tall --out long.png
-node scripts/x-post2image.mjs "<url>" --layout single --out single.png
-
-# 可选：两页 article spread（上一版布局）
+# 强制两页 / 强制长卡 / 强制单页
 node scripts/x-post2image.mjs "<url>" --layout spread --out spread.png
+node scripts/x-post2image.mjs "<url>" --layout tall --out tall.png
+node scripts/x-post2image.mjs "<url>" --layout single --out single.png
 ```
 
 长卡由 Pillow 确定性渲染，需要 Python 3.10+ 和 Pillow（见 `requirements.txt`）。

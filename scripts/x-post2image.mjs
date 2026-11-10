@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -8,7 +8,7 @@ import { renderCardHtml, applyMetricOverrides } from "./lib/render.mjs";
 import { embedMedia } from "./lib/media.mjs";
 import { cacheImageFile } from "./lib/media.mjs";
 import { translateText, translateTweet } from "./lib/translate.mjs";
-import { buildArticleCardData, buildLongCardData, renderArticleCard, renderLongCard } from "./long.mjs";
+import { buildArticleCardData, buildLongCardData, buildSpreadCardData, renderArticleCard, renderLongCard, renderSpreadCard } from "./long.mjs";
 import {
   defaultCacheDir,
   fetchTweet,
@@ -71,6 +71,7 @@ APPEARANCE
                          X-article card for long posts; spread = optional
                          two-page article layout)
       --long-threshold <n>  Character count that triggers tall layout (default 360)
+      --spread-threshold <px>  Tall-card height that auto-switches to two pages (default 1400)
       --long-height <px>  Spread card height (default 640/760/900 by text length)
       --title <text>      Optional spread-page title
       --subtitle <text>   Optional spread-page subtitle
@@ -137,6 +138,7 @@ function parseArgv(argv) {
     useWebfont: true,
     layout: "auto",
     longThreshold: 360,
+    spreadThreshold: 1400,
     longHeight: null,
     title: "",
     subtitle: "",
@@ -187,6 +189,7 @@ function parseArgv(argv) {
     ["--translation-provider", "translationProvider"],
     ["--layout", "layout"],
     ["--long-threshold", "longThreshold"],
+    ["--spread-threshold", "spreadThreshold"],
     ["--long-height", "longHeight"],
     ["--title", "title"],
     ["--subtitle", "subtitle"],
@@ -280,6 +283,7 @@ function parseArgv(argv) {
     throw usageError(`--layout must be auto, single, tall or spread (got "${options.layout}")`);
   }
   options.longThreshold = clampInteger(options.longThreshold, 80, 10_000, "--long-threshold");
+  options.spreadThreshold = clampInteger(options.spreadThreshold, 600, 10_000, "--spread-threshold");
   if (options.frame && !["none", "card"].includes(options.frame)) {
     throw usageError(`--frame must be none or card (got "${options.frame}")`);
   }
@@ -358,20 +362,28 @@ async function renderOne(input, options, sharedCss) {
           })) || ""
         : originalAvatarUrl
       : "";
+    const mediaFiles = (
+      await Promise.all(
+        (tweet.media || [])
+          .filter((item) => item.type === "photo" && item.url)
+          .slice(0, 4)
+          .map((item) => cacheImageFile(item.url, {
+            cacheDir: options.cacheDir,
+            timeout: options.timeout,
+          })),
+      )
+    ).filter(Boolean);
     if (options.layout === "spread") {
-      const longData = buildLongCardData(tweet, {
+      const spreadData = buildSpreadCardData(tweet, {
         text: tweet.text,
-        title: options.title,
-        subtitle: options.subtitle,
         avatar: avatarFile,
+        media: mediaFiles,
         translated: Boolean(tweet.translation?.changed),
       });
-      const longHeight = options.longHeight || (textLength > 1200 ? 1100 : textLength > 800 ? 900 : textLength > 500 ? 800 : 720);
-      const longShot = await renderLongCard(longData, {
+      const spreadShot = await renderSpreadCard(spreadData, {
         out: outputPath,
         python: options.python,
         width: 1080,
-        height: longHeight,
         scale: 1,
       });
       return {
@@ -381,14 +393,13 @@ async function renderOne(input, options, sharedCss) {
         author: tweet.author,
         text: tweet.text,
         metrics: tweet.metrics,
-        theme: "paper",
-        layout: "two-page-spread",
-        title: longShot.title,
-        out: longShot.output,
+        theme: "x-article",
+        layout: "two-page-x-cards",
+        out: spreadShot.output,
         html: null,
-        width: longShot.width,
-        height: longShot.height,
-        engine: "pillow-long-card",
+        width: spreadShot.width,
+        height: spreadShot.height,
+        engine: "pillow-two-page-card",
         source: tweet._meta?.source || "unknown",
         translation: tweet.translation || null,
         bytes: null,
@@ -398,22 +409,50 @@ async function renderOne(input, options, sharedCss) {
       text: tweet.text,
       avatar: avatarFile,
       translated: Boolean(tweet.translation?.changed),
-      media: await Promise.all(
-        (tweet.media || [])
-          .filter((item) => item.type === "photo" && item.url)
-          .slice(0, 4)
-          .map((item) => cacheImageFile(item.url, {
-            cacheDir: options.cacheDir,
-            timeout: options.timeout,
-          })),
-      ).then((files) => files.filter(Boolean)),
+      media: mediaFiles,
     });
+    const temporary = `${outputPath}.tall.tmp.png`;
     const articleShot = await renderArticleCard(articleData, {
-      out: outputPath,
+      out: temporary,
       python: options.python,
       width: 1080,
       scale: 1,
     });
+    if (options.layout === "auto" && articleShot.height > options.spreadThreshold) {
+      await rm(temporary, { force: true }).catch(() => {});
+      const spreadData = buildSpreadCardData(tweet, {
+        text: tweet.text,
+        avatar: avatarFile,
+        media: mediaFiles,
+        translated: Boolean(tweet.translation?.changed),
+      });
+      const spreadShot = await renderSpreadCard(spreadData, {
+        out: outputPath,
+        python: options.python,
+        width: 1080,
+        scale: 1,
+      });
+      return {
+        ok: true,
+        id: tweet.id,
+        url: tweet.url,
+        author: tweet.author,
+        text: tweet.text,
+        metrics: tweet.metrics,
+        theme: "x-article",
+        layout: "two-page-x-cards",
+        out: spreadShot.output,
+        html: null,
+        width: spreadShot.width,
+        height: spreadShot.height,
+        engine: "pillow-two-page-card",
+        source: tweet._meta?.source || "unknown",
+        translation: tweet.translation || null,
+        bytes: null,
+      };
+    }
+    await rm(outputPath, { force: true }).catch(() => {});
+    await rename(temporary, outputPath);
     return {
       ok: true,
       id: tweet.id,
@@ -423,7 +462,7 @@ async function renderOne(input, options, sharedCss) {
       metrics: tweet.metrics,
       theme: "x-article",
       layout: "x-article-tall",
-      out: articleShot.output,
+      out: outputPath,
       html: null,
       width: articleShot.width,
       height: articleShot.height,

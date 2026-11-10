@@ -70,9 +70,9 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 
 ## Long posts: X-article card
 
-When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content) modeled on the reference: white rounded card on the X grey background, large real-avatar header with name/handle/verified badge, X wordmark, large body text, post images, optional fenced code blocks, and a date/timezone footer with an `AI 翻译` label. Text is measured and rendered top-to-bottom with no fixed-page clipping; the card height grows to fit.
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). If that tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the left page, and date/timezone + `AI 翻译` footers.
 
-Use `--layout tall` to force it on a shorter post, `--layout single` to force the normal card, and `--long-height`/`--title`/`--subtitle` plus `--layout spread` for the optional two-page article variant. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_long_card.py` (spread).
+Use `--layout tall` to force tall on a shorter post, `--layout single` to force the normal card, `--layout spread` to force the two-page card. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_two_page.py` (two-page).
 
 ## Two modes
 
@@ -152,8 +152,7 @@ See `references/insight-discovery.md`, `insight-caption.md`, `insight-scheduling
 | `--no-webfont` | Skip X's Chirp webfont (fast offline renders) | auto |
 | `--layout <name>` | `auto` / `single` / `tall` / `spread` | `auto` |
 | `--long-threshold <n>` | Character count that triggers tall layout | `360` |
-| `--long-height <px>` | Spread height; auto if omitted | 720/800/900/1100 |
-| `--title <text>` / `--subtitle <text>` | Spread headings | derived from post |
+| `--spread-threshold <px>` | Tall height that auto-switches to two pages | `1400` |
 | `--python <bin>` | Python with Pillow for long cards | `python` |
 | `--css <file>` | Append custom CSS | — |
 | `--translate <lang>` | Translate body, quote and poll text into `lang` (`auto` = `--lang` or zh-CN) | off |
@@ -231,7 +230,7 @@ Start with `node scripts/x-post2image.mjs --doctor` whenever the environment is 
 | `scripts/lib/format.mjs` | X-style compact numbers and dates |
 | `scripts/insight.mjs` | Insight pipeline router (search/verify/rank/render/qa/pack/daily/history) |
 | `scripts/insight/render_article_card.py` | Tall X-official-style long article renderer |
-| `scripts/insight/render_long_card.py` | Optional two-page journal spread renderer |
+| `scripts/insight/render_two_page.py` | Two-page side-by-side X-card renderer |
 | `scripts/insight/render_card.py` | Adaptive bilingual insight-card renderer |
 | `scripts/insight/` | Candidate verification, scoring, Pillow renderer, QA, history, scheduling |
 | `scripts/insight/delivery/` | Optional WeChat iLink / File Transfer Assistant delivery |

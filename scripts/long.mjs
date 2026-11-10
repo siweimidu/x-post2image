@@ -208,6 +208,55 @@ export async function renderArticleCard(data, { out, python = process.env.PYTHON
   }
 }
 
+export function buildSpreadCardData(tweet, options = {}) {
+  const text = String(options.text || tweet.text || "")
+    .trim()
+    .replace(/➤/g, "•")
+    .replace(/▪/g, "•");
+  return {
+    author: tweet.author?.name || "",
+    handle: tweet.author?.screenName ? `@${tweet.author.screenName}` : "",
+    avatar: options.avatar || "",
+    verified: Boolean(tweet.author?.verified),
+    text,
+    media: options.media || [],
+    media_label: options.mediaLabel || "Video preview",
+    date_display: longDate(tweet.createdAt),
+    timezone_label: "UTC+8",
+    translation_label: options.translated ? "AI 翻译" : "原文",
+    body_size: options.bodySize || (text.length > 1400 ? 13 : text.length > 700 ? 15 : 17),
+    line_height: options.lineHeight || (text.length > 1400 ? 21 : text.length > 700 ? 24 : 27),
+  };
+}
+
+export async function renderSpreadCard(data, { out, python = process.env.PYTHON || "python", width = 1080, scale = 1 } = {}) {
+  const output = path.resolve(out);
+  await mkdir(path.dirname(output), { recursive: true });
+  const inputPath = `${output}.input.json`;
+  await writeFile(inputPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  try {
+    const result = spawnSync(python, [
+      path.join(here, "insight", "render_two_page.py"),
+      "--input",
+      inputPath,
+      "--output",
+      output,
+      "--width",
+      String(width),
+      "--scale",
+      String(scale),
+    ], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+    if (result.status !== 0) {
+      throw new Error(`${python} failed: ${(result.stderr || result.stdout || "").slice(-500)}`);
+    }
+    const match = `${result.stdout || ""}`.match(/\{[\s\S]*\}\s*$/);
+    if (!match) throw new Error(`Could not parse two-page renderer output: ${result.stdout}`);
+    return JSON.parse(match[0]);
+  } finally {
+    await rm(inputPath, { force: true }).catch(() => {});
+  }
+}
+
 export async function renderLongCard(data, { out, python = process.env.PYTHON || "python", width = 1080, height = 720, scale = 1 } = {}) {
   const output = path.resolve(out);
   await mkdir(path.dirname(output), { recursive: true });
