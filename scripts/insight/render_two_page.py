@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Render a long X post as 2-3 side-by-side X-official cards.
 
-Reference layout: rightmost card is the first part of the post, subsequent
-parts move left. The card height is capped at 687 px; when content no longer
-fits two cards, the renderer grows horizontally to three cards instead.
+Reading order is left-to-right: the leftmost card is the first part of the
+post, later parts continue to the right, and the rightmost card carries the
+post's images/charts. The card height is capped at 687 px; when content no
+longer fits two cards, the renderer grows horizontally to three cards.
 """
 
 from __future__ import annotations
@@ -30,11 +31,7 @@ FOOTER_TOP = PAGE_HEIGHT - PAGE_MARGIN - 34
 
 
 def split_paragraphs(text: str, count: int, weights: list[float]) -> list[str]:
-    """Return chunks in content order: first part first, later parts last.
-
-    The visual renderer reverses this list, so the rightmost card gets the
-    first part and the leftmost card gets the later part.
-    """
+    """Return chunks in left-to-right reading order: first part first, later parts last."""
     source = text.strip()
     if count == 1:
         return [source]
@@ -54,7 +51,7 @@ def split_paragraphs(text: str, count: int, weights: list[float]) -> list[str]:
         left_fraction = weights[-1] if weights else 0.4
         right, left = tail_at_sentence(left_fraction)
         return [right, left]
-    # Three cards: rightmost = first, middle = second, leftmost = short later tail.
+    # Three cards: left = first, middle = second, right = short later tail + media.
     left_fraction = weights[-1] if weights else 0.12
     right_and_middle, left = tail_at_sentence(left_fraction)
     middle_start = max(1, int(len(right_and_middle) * 0.5))
@@ -96,9 +93,9 @@ def choose_layout(text: str, has_media: bool, body_width: int, body_height: int)
             weights = [0.45, 0.45, 0.1] if pages == 3 else [0.6, 0.4]
             chunks = split_paragraphs(text, pages, weights)
             heights = [measure(scratch, chunk, font, body_width, line_height) for chunk in chunks]
-            # visual leftmost page holds the last chunk and may carry media
-            left_capacity = body_height - (300 if has_media else 0)
-            if heights[-1] > left_capacity:
+            # rightmost page holds the last chunk and may carry media
+            last_capacity = body_height - (300 if has_media else 0)
+            if heights[-1] > last_capacity:
                 continue
             if any(height > body_height for height in heights[:-1]):
                 continue
@@ -129,8 +126,8 @@ def render_two_page(data: dict, output_path: Path, *, width: int = 1080, scale: 
     handle_font = load_font(cjk_regular, int(14 * scale))
     date_font = load_font(cjk_regular, int(10 * scale))
 
-    # Content order is right-to-left; visual pages are left-to-right.
-    visual_chunks = list(reversed(chunks))
+    # Content order is left-to-right; the last chunk sits on the right page.
+    visual_chunks = chunks
     for page_index in range(pages):
         px = margin + page_index * (card_w + gap)
         draw.rounded_rectangle((px, margin, px + card_w, page_h - margin), radius=int(16 * scale), fill=PAPER)
@@ -145,8 +142,8 @@ def render_two_page(data: dict, output_path: Path, *, width: int = 1080, scale: 
         draw_x_logo(draw, px + card_w - int(44 * scale), int(35 * scale), int(24 * scale))
 
         y = draw_text_lines(draw, visual_chunks[page_index], body_font, px + body_pad, int(BODY_TOP * scale), body_w, line_height * scale)
-        # Post images belong on the leftmost (later) page.
-        if page_index == 0 and media_paths:
+        # Post images belong on the rightmost (last) page.
+        if page_index == pages - 1 and media_paths:
             my = y + int(8 * scale)
             footer_limit = FOOTER_TOP * scale - int(20 * scale)
             for file_path in media_paths:
