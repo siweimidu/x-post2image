@@ -3,7 +3,7 @@ name: x-post2image
 description: Use when the user wants an X/Twitter post turned into an image — "tweet screenshot", "save this tweet as a PNG", "把推文做成图片/截图/长图/卡片", "post card for a slide", "archive this X post", "translate this tweet / 翻译这条推文" — or needs a source-audited content pipeline that discovers, verifies, scores, deduplicates, translates, typesets, captions and privately delivers X posts. Renders any public x.com / twitter.com status URL into a high-resolution PNG, with an automatic tall X-official-style article card for long posts, through one self-contained Node CLI; includes an optional Pillow insight-card pipeline with adaptive bilingual layout and WeChat review delivery.
 license: MIT
 metadata:
-  version: "2.1.0"
+  version: "2.1.5"
   upstream: "https://github.com/Yunshiro/x-post2image"
   upstream_insight: "https://github.com/ljunnan24-hash/x-insight-cards"
   compatibility: "Node.js >= 18; Chrome/Chromium or Playwright; Python 3.10+ + Pillow for insight rendering"
@@ -70,7 +70,7 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 
 ## Long posts: X-article card
 
-When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). If that tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two (or three, when needed) white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the rightmost (last) page, and date/timezone + `AI 翻译` footers.
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). Short translated posts (≤ `--bilingual-threshold`, default 700 characters) keep the original and Chinese translation both visible in large type, like the reference; longer translated posts use the translation with an `AI 翻译` label. If the tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two (or three, when needed) white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the rightmost (last) page, and date/timezone + `AI 翻译` footers.
 
 Use `--layout tall` to force tall on a shorter post, `--layout single` to force the normal card, `--layout spread` to force the two-page card. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_two_page.py` (two-page).
 
@@ -153,6 +153,7 @@ See `references/insight-discovery.md`, `insight-caption.md`, `insight-scheduling
 | `--layout <name>` | `auto` / `single` / `tall` / `spread` | `auto` |
 | `--long-threshold <n>` | Character count that triggers tall layout | `360` |
 | `--spread-threshold <px>` | Tall height that auto-switches to two pages | `1400` |
+| `--bilingual-threshold <n>` | Short translated posts show original + translation | `700` |
 | `--python <bin>` | Python with Pillow for long cards | `python` |
 | `--css <file>` | Append custom CSS | — |
 | `--translate <lang>` | Translate body, quote and poll text into `lang` (`auto` = `--lang` or zh-CN) | off |

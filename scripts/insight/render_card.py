@@ -82,6 +82,22 @@ def measure(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) 
     return float(draw.textlength(text, font=font))
 
 
+def break_overlong_lines(draw: ImageDraw.ImageDraw, lines: list[str], font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+    """Split long URLs / uninterrupted tokens that would otherwise overflow."""
+    result: list[str] = []
+    for line in lines:
+        remaining = line
+        while remaining and measure(draw, remaining, font) > max_width:
+            cut = len(remaining) - 1
+            while cut > 1 and measure(draw, remaining[:cut], font) > max_width:
+                cut -= 1
+            result.append(remaining[:cut].rstrip())
+            remaining = remaining[cut:].lstrip()
+        if remaining:
+            result.append(remaining)
+    return result
+
+
 def wrap_words(
     draw: ImageDraw.ImageDraw,
     text: str,
@@ -101,7 +117,7 @@ def wrap_words(
             lines.append(current)
             current = word
     lines.append(current)
-    return lines
+    return break_overlong_lines(draw, lines, font, max_width)
 
 
 def rebalance_cjk(lines: list[str]) -> list[str]:

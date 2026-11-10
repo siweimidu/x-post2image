@@ -176,15 +176,20 @@ def render_two_page(data: dict, output_path: Path, *, width: int = 1080, scale: 
     timezone = str(data.get("timezone_label", "")).strip()
     label = str(data.get("translation_label", "AI 翻译")).strip()
     left_x = margin + body_pad
-    draw.text((left_x, FOOTER_TOP * scale), date_text, font=date_font, fill=MUTED)
+    date_bbox = draw.textbbox((0, 0), date_text, font=date_font)
+    date_height = date_bbox[3] - date_bbox[1]
+    center_y = FOOTER_TOP * scale + date_height / 2
+    draw.text((left_x, center_y), date_text, font=date_font, fill=MUTED, anchor="lm")
     if timezone:
         date_w = draw.textlength(date_text, font=date_font)
         pill_x = left_x + int(date_w) + int(12 * scale)
+        label_bbox = draw.textbbox((0, 0), timezone, font=date_font)
+        label_height = label_bbox[3] - label_bbox[1]
         pill_w = int(draw.textlength(timezone, font=date_font)) + int(14 * scale)
-        draw.rounded_rectangle((pill_x, FOOTER_TOP * scale - int(3 * scale), pill_x + pill_w, FOOTER_TOP * scale + int(12 * scale)), radius=int(5 * scale), outline=(207, 217, 222), width=max(1, int(scale)))
-        draw.text((pill_x + int(7 * scale), FOOTER_TOP * scale), timezone, font=date_font, fill=MUTED)
+        draw.rounded_rectangle((pill_x, center_y - label_height / 2 - int(3 * scale), pill_x + pill_w, center_y + label_height / 2 + int(3 * scale)), radius=int(5 * scale), outline=(207, 217, 222), width=max(1, int(scale)))
+        draw.text((pill_x + int(7 * scale), center_y), timezone, font=date_font, fill=MUTED, anchor="lm")
     right_x = W - margin - card_w + body_pad
-    draw.text((right_x + card_w - body_pad * 2 - draw.textlength(label, font=date_font), FOOTER_TOP * scale), label, font=date_font, fill=MUTED)
+    draw.text((right_x + card_w - body_pad * 2 - draw.textlength(label, font=date_font), center_y), label, font=date_font, fill=MUTED, anchor="lm")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path, format="PNG", optimize=True)

@@ -28,7 +28,7 @@ import {
   renderScreenshot,
 } from "./lib/screenshot.mjs";
 
-const VERSION = "2.1.0";
+const VERSION = "2.1.5";
 
 const HELP = `x-post2image ${VERSION} — render an X/Twitter post as a PNG card
 
@@ -72,6 +72,7 @@ APPEARANCE
                          two-page article layout)
       --long-threshold <n>  Character count that triggers tall layout (default 360)
       --spread-threshold <px>  Tall-card height that auto-switches to two pages (default 1400)
+      --bilingual-threshold <n>  Short translated posts show original + translation (default 700)
       --long-height <px>  Spread card height (default 640/760/900 by text length)
       --title <text>      Optional spread-page title
       --subtitle <text>   Optional spread-page subtitle
@@ -139,6 +140,7 @@ function parseArgv(argv) {
     layout: "auto",
     longThreshold: 360,
     spreadThreshold: 1400,
+    bilingualThreshold: 700,
     longHeight: null,
     title: "",
     subtitle: "",
@@ -190,6 +192,7 @@ function parseArgv(argv) {
     ["--layout", "layout"],
     ["--long-threshold", "longThreshold"],
     ["--spread-threshold", "spreadThreshold"],
+    ["--bilingual-threshold", "bilingualThreshold"],
     ["--long-height", "longHeight"],
     ["--title", "title"],
     ["--subtitle", "subtitle"],
@@ -284,6 +287,7 @@ function parseArgv(argv) {
   }
   options.longThreshold = clampInteger(options.longThreshold, 80, 10_000, "--long-threshold");
   options.spreadThreshold = clampInteger(options.spreadThreshold, 600, 10_000, "--spread-threshold");
+  options.bilingualThreshold = clampInteger(options.bilingualThreshold, 80, 10_000, "--bilingual-threshold");
   if (options.frame && !["none", "card"].includes(options.frame)) {
     throw usageError(`--frame must be none or card (got "${options.frame}")`);
   }
@@ -334,7 +338,7 @@ async function renderOne(input, options, sharedCss) {
     const target = options.translate === "auto" ? options.lang || "zh-CN" : options.translate;
     tweet = await translateTweet(tweet, {
       target,
-      bilingual: options.bilingual,
+      bilingual: options.bilingual || Boolean(options.translate),
       provider: options.translationProvider,
       timeout: options.timeout,
       cacheDir: options.cacheDir,
@@ -348,7 +352,15 @@ async function renderOne(input, options, sharedCss) {
     ? path.resolve(options.out)
     : defaultOutputPath(tweet, options.outDir);
   const textLength = String(tweet.text || "").length;
-  const useLongLayout = options.layout === "spread" || options.layout === "tall" || (options.layout === "auto" && textLength >= options.longThreshold);
+  const originalText = String(tweet.translation?.originalText || "");
+  const shouldBilingual = Boolean(
+    options.layout !== "single" &&
+    options.translate &&
+    tweet.translation?.changed &&
+    originalText &&
+    textLength <= options.bilingualThreshold,
+  );
+  const useLongLayout = options.layout === "spread" || options.layout === "tall" || shouldBilingual || (options.layout === "auto" && textLength >= options.longThreshold);
 
   if (useLongLayout) {
     if (options.htmlOnly) {
@@ -409,6 +421,10 @@ async function renderOne(input, options, sharedCss) {
       text: tweet.text,
       avatar: avatarFile,
       translated: Boolean(tweet.translation?.changed),
+      bilingual: shouldBilingual,
+      originalText: shouldBilingual ? originalText : "",
+      bodySize: shouldBilingual ? 34 : undefined,
+      lineHeight: shouldBilingual ? 52 : undefined,
       media: mediaFiles,
     });
     const temporary = `${outputPath}.tall.tmp.png`;
@@ -418,7 +434,7 @@ async function renderOne(input, options, sharedCss) {
       width: 1080,
       scale: 1,
     });
-    if (options.layout === "auto" && articleShot.height > options.spreadThreshold) {
+    if (options.layout === "auto" && !shouldBilingual && articleShot.height > options.spreadThreshold) {
       await rm(temporary, { force: true }).catch(() => {});
       const spreadData = buildSpreadCardData(tweet, {
         text: tweet.text,

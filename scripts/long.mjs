@@ -144,6 +144,18 @@ function splitCodeSegments(text) {
   return segments.filter((segment) => segment.text.trim());
 }
 
+function bilingualSegments(original, translated) {
+  const originalParagraphs = String(original || "").trim().split(/\n{2,}/).filter(Boolean);
+  const translatedParagraphs = String(translated || "").trim().split(/\n{2,}/).filter(Boolean);
+  const segments = [];
+  const count = Math.max(originalParagraphs.length, translatedParagraphs.length);
+  for (let index = 0; index < count; index += 1) {
+    if (originalParagraphs[index]) segments.push({ type: "text", text: originalParagraphs[index].trim() });
+    if (translatedParagraphs[index]) segments.push({ type: "translation", text: translatedParagraphs[index].trim() });
+  }
+  return segments;
+}
+
 function longDate(dateValue) {
   if (!dateValue) return "";
   const date = new Date(dateValue);
@@ -164,19 +176,20 @@ export function buildArticleCardData(tweet, options = {}) {
     .trim()
     .replace(/➤/g, "•")
     .replace(/▪/g, "•");
+  const bilingual = Boolean(options.bilingual && options.originalText);
   return {
     author: tweet.author?.name || "",
     handle: tweet.author?.screenName ? `@${tweet.author.screenName}` : "",
     avatar: options.avatar || "",
     verified: Boolean(tweet.author?.verified),
     text,
-    segments: splitCodeSegments(text),
+    segments: bilingual ? bilingualSegments(options.originalText, text) : splitCodeSegments(text),
     date_display: longDate(tweet.createdAt),
     timezone_label: "UTC+8",
     translation_label: options.translated ? "AI 翻译" : "原文",
     media: options.media || [],
-    body_size: options.bodySize || (text.length > 900 ? 30 : 34),
-    line_height: options.lineHeight || (text.length > 900 ? 46 : 52),
+    body_size: options.bodySize || (bilingual ? 34 : text.length > 900 ? 30 : 34),
+    line_height: options.lineHeight || (bilingual ? 52 : text.length > 900 ? 46 : 52),
   };
 }
 

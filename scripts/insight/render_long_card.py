@@ -17,7 +17,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from render_card import find_fonts, load_font, rebalance_cjk, wrap_words
+from render_card import break_overlong_lines, find_fonts, load_font, rebalance_cjk, wrap_words
 
 
 PAPER = (255, 255, 255)
@@ -56,7 +56,7 @@ def wrap_cjk_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) ->
             current = "" if token == " " else token
     if current.strip():
         lines.append(current.rstrip())
-    return rebalance_cjk([line for line in lines if line.strip()])
+    return rebalance_cjk(break_overlong_lines(draw, [line for line in lines if line.strip()], font, max_width))
 
 
 def cjk_bold(cjk_spec: tuple[str, int]) -> tuple[str, int]:

@@ -129,10 +129,11 @@ def draw_body(draw, segments: list[dict], x: int, y: int, width: int, *, body_fo
             continue
         text = segment["text"].strip("\n")
         paragraphs = text.split("\n")
+        color = MUTED if segment.get("type") == "translation" else INK
         for index, paragraph in enumerate(paragraphs):
             if paragraph:
                 for line in wrap_cjk_text(draw, paragraph, body_font, width):
-                    draw.text((x, y), line, font=body_font, fill=INK)
+                    draw.text((x, y), line, font=body_font, fill=color)
                     y += line_height
             elif 0 < index < len(paragraphs) - 1:
                 y += paragraph_gap
@@ -223,15 +224,23 @@ def render_article_card(data: dict, output_path: Path, *, width: int = 1080, sca
     date_text = str(data.get("date_display", "")).strip()
     if not date_text and data.get("date"):
         date_text = str(data["date"])
-    draw.text((x, footer_y), date_text, font=date_font, fill=MUTED)
+    date_bbox = draw.textbbox((0, 0), date_text, font=date_font)
+    date_height = date_bbox[3] - date_bbox[1]
+    center_y = footer_y + date_height / 2
+    draw.text((x, center_y), date_text, font=date_font, fill=MUTED, anchor="lm")
     if data.get("timezone_label"):
         date_width = draw.textlength(date_text, font=date_font)
         pill_x = x + int(date_width) + int(18 * scale)
-        pill_w = int(draw.textlength(str(data["timezone_label"]), font=label_font)) + int(20 * scale)
-        draw.rounded_rectangle((pill_x, footer_y + int(2 * scale), pill_x + pill_w, footer_y + int(34 * scale)), radius=int(8 * scale), outline=(207, 217, 222), width=max(1, int(scale)))
-        draw.text((pill_x + int(10 * scale), footer_y + int(6 * scale)), str(data["timezone_label"]), font=label_font, fill=MUTED)
+        timezone = str(data["timezone_label"])
+        label_bbox = draw.textbbox((0, 0), timezone, font=label_font)
+        label_height = label_bbox[3] - label_bbox[1]
+        pill_w = int(draw.textlength(timezone, font=label_font)) + int(20 * scale)
+        pill_top = center_y - label_height / 2 - int(4 * scale)
+        pill_bottom = center_y + label_height / 2 + int(4 * scale)
+        draw.rounded_rectangle((pill_x, pill_top, pill_x + pill_w, pill_bottom), radius=int(7 * scale), outline=(207, 217, 222), width=max(1, int(scale)))
+        draw.text((pill_x + int(10 * scale), center_y), timezone, font=label_font, fill=MUTED, anchor="lm")
     label = str(data.get("translation_label", "AI 翻译")).strip()
-    draw.text((W - x - draw.textlength(label, font=label_font), footer_y + int(2 * scale)), label, font=label_font, fill=MUTED)
+    draw.text((W - x - draw.textlength(label, font=label_font), center_y), label, font=label_font, fill=MUTED, anchor="lm")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path, format="PNG", optimize=True)

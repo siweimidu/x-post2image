@@ -22,6 +22,19 @@ test("buildLongCardData keeps title/subtitle and distributes body", () => {
   assert.equal(data.metrics.likes, 320000);
 });
 
+test("buildArticleCardData can emit original + translation segments", () => {
+  const tweet = JSON.parse(readFileSync(path.join(root, "test", "fixtures", "long-tweet.json"), "utf8"));
+  const data = buildArticleCardData(tweet, {
+    text: "这是中文翻译。",
+    originalText: "This is the original.",
+    bilingual: true,
+    avatar: "test/fixtures/test-avatar.png",
+    translated: true,
+  });
+  assert.deepEqual(data.segments.map((segment) => segment.type), ["text", "translation"]);
+  assert.equal(data.body_size, 34);
+});
+
 test("Pillow long-card renderer outputs 1080x720 spread", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "x2i-long-render-"));
   try {

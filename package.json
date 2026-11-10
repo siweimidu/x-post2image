@@ -1,6 +1,6 @@
 {
   "name": "x-post2image-skill",
-  "version": "2.1.0",
+  "version": "2.1.5",
   "private": true,
   "type": "module",
   "description": "Agent Skill: render X/Twitter posts as pixel-faithful cards and run a source-audited insight-card content pipeline.",
