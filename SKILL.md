@@ -70,7 +70,7 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 
 ## Long posts: X-article card
 
-When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). If that tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the left page, and date/timezone + `AI 翻译` footers.
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). If that tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two (or three, when needed) white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the left page, and date/timezone + `AI 翻译` footers.
 
 Use `--layout tall` to force tall on a shorter post, `--layout single` to force the normal card, `--layout spread` to force the two-page card. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_two_page.py` (two-page).
 

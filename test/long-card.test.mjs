@@ -95,7 +95,7 @@ test("Pillow two-page renderer outputs two X cards", async () => {
     ], { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
     const meta = JSON.parse(result.stdout);
-    assert.equal(meta.layout, "two-page-x-cards");
+    assert.equal(meta.layout, "multi-page-x-cards");
     const size = pngSize(output);
     assert.equal(size.width, 1080);
     assert.ok(size.height >= 420);
