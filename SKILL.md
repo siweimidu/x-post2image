@@ -70,7 +70,7 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 
 ## Long posts: X-article card
 
-When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content) modeled on the reference: white rounded card on the X grey background, large real-avatar header with name/handle/verified badge, X wordmark, large body text, optional fenced code blocks, and a date/timezone footer with an `AI 翻译` label. Text is measured and rendered top-to-bottom with no fixed-page clipping; the card height grows to fit.
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content) modeled on the reference: white rounded card on the X grey background, large real-avatar header with name/handle/verified badge, X wordmark, large body text, post images, optional fenced code blocks, and a date/timezone footer with an `AI 翻译` label. Text is measured and rendered top-to-bottom with no fixed-page clipping; the card height grows to fit.
 
 Use `--layout tall` to force it on a shorter post, `--layout single` to force the normal card, and `--long-height`/`--title`/`--subtitle` plus `--layout spread` for the optional two-page article variant. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_long_card.py` (spread).
 

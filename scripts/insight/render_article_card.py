@@ -14,7 +14,7 @@ import os
 import re
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from render_long_card import avatar_image, draw_verified_badge, find_fonts, load_font, wrap_cjk_text
 
@@ -43,6 +43,27 @@ def find_mono_font() -> tuple[str, int]:
             return path, index
     # Fall back to the regular font rather than crash.
     return find_fonts()[0]
+
+
+def draw_media(image: Image.Image, paths: list[str], x: int, y: int, width: int, scale: int) -> int:
+    max_height = int(900 * scale)
+    for file_path in paths:
+        try:
+            photo = Image.open(file_path).convert("RGB")
+        except Exception:
+            continue
+        ratio = photo.width / max(1, photo.height)
+        draw_width = width
+        draw_height = int(draw_width / ratio)
+        if draw_height > max_height:
+            draw_height = max_height
+            draw_width = int(draw_height * ratio)
+        photo = photo.resize((draw_width, draw_height), Image.Resampling.LANCZOS)
+        mask = Image.new("L", (draw_width, draw_height), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, draw_width, draw_height), radius=int(16 * scale), fill=255)
+        image.paste(photo, (x, y), mask)
+        y += draw_height + int(22 * scale)
+    return y
 
 
 def draw_x_logo(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
@@ -145,6 +166,7 @@ def render_article_card(data: dict, output_path: Path, *, width: int = 1080, sca
     segments = data.get("segments")
     if not segments:
         segments = split_segments(str(data.get("text", "")))
+    media_paths = [str(item) for item in data.get("media", []) if item and Path(str(item)).exists()]
     scratch = ImageDraw.Draw(Image.new("RGB", (W, 2000), "white"))
     body_height = 0
     for segment in segments:
@@ -152,7 +174,15 @@ def render_article_card(data: dict, output_path: Path, *, width: int = 1080, sca
             body_height += int(12 * scale) + int(20 * scale) * 2 + max(1, len(segment["text"].split("\n"))) * code_line + int(18 * scale)
         else:
             body_height += text_height(scratch, segment["text"].strip("\n"), body_font, content_width, line_height, int(18 * scale)) + int(18 * scale)
-    H = max(int(600 * scale), body_y + body_height + footer_h + int(60 * scale))
+    media_height = 0
+    for file_path in media_paths:
+        try:
+            probe = Image.open(file_path)
+            ratio = probe.width / max(1, probe.height)
+            media_height += int(content_width / ratio) + int(22 * scale)
+        except Exception:
+            pass
+    H = max(int(600 * scale), body_y + body_height + media_height + footer_h + int(60 * scale))
     image = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((margin, margin, W - margin, H - margin), radius=int(24 * scale), fill=PAPER)
@@ -185,6 +215,8 @@ def render_article_card(data: dict, output_path: Path, *, width: int = 1080, sca
         code_line=code_line,
         scale=scale,
     )
+    if media_paths:
+        y = draw_media(image, media_paths, x, y + int(4 * scale), content_width, scale)
 
     # Footer
     footer_y = H - int(88 * scale)

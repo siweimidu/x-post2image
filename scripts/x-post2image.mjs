@@ -398,6 +398,15 @@ async function renderOne(input, options, sharedCss) {
       text: tweet.text,
       avatar: avatarFile,
       translated: Boolean(tweet.translation?.changed),
+      media: await Promise.all(
+        (tweet.media || [])
+          .filter((item) => item.type === "photo" && item.url)
+          .slice(0, 4)
+          .map((item) => cacheImageFile(item.url, {
+            cacheDir: options.cacheDir,
+            timeout: options.timeout,
+          })),
+      ).then((files) => files.filter(Boolean)),
     });
     const articleShot = await renderArticleCard(articleData, {
       out: outputPath,

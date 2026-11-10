@@ -160,7 +160,10 @@ function longDate(dateValue) {
 }
 
 export function buildArticleCardData(tweet, options = {}) {
-  const text = String(options.text || tweet.text || "").trim();
+  const text = String(options.text || tweet.text || "")
+    .trim()
+    .replace(/➤/g, "•")
+    .replace(/▪/g, "•");
   return {
     author: tweet.author?.name || "",
     handle: tweet.author?.screenName ? `@${tweet.author.screenName}` : "",
@@ -171,6 +174,7 @@ export function buildArticleCardData(tweet, options = {}) {
     date_display: longDate(tweet.createdAt),
     timezone_label: "UTC+8",
     translation_label: options.translated ? "AI 翻译" : "原文",
+    media: options.media || [],
     body_size: options.bodySize || (text.length > 900 ? 30 : 34),
     line_height: options.lineHeight || (text.length > 900 ? 46 : 52),
   };
