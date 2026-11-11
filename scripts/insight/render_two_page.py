@@ -36,6 +36,20 @@ def split_paragraphs(text: str, count: int, weights: list[float]) -> list[str]:
     if count == 1:
         return [source]
 
+    def _snap_word(boundary: int) -> int:
+        # Never cut inside a latin word/token (e.g. "Gemini Omni Flash"): move to
+        # the end of the current word so no letter sequence is split across pages.
+        if boundary <= 0 or boundary >= len(source):
+            return boundary
+        def _is_word_char(ch: str) -> bool:
+            return ch.isalnum() or ch in "'’-"
+        if _is_word_char(source[boundary - 1]) and _is_word_char(source[boundary]):
+            end = boundary
+            while end < len(source) and _is_word_char(source[end]):
+                end += 1
+            return end
+        return boundary
+
     def tail_at_sentence(fraction: float) -> tuple[str, str]:
         target = max(1, int(len(source) * fraction))
         cut = max(1, len(source) - target)
@@ -45,6 +59,7 @@ def split_paragraphs(text: str, count: int, weights: list[float]) -> list[str]:
             if 0 <= found < cut + max(80, target // 3):
                 cut = found + len(marker)
                 break
+        cut = _snap_word(cut)
         return source[:cut].strip(), source[cut:].strip()
 
     if count == 2:
@@ -58,6 +73,9 @@ def split_paragraphs(text: str, count: int, weights: list[float]) -> list[str]:
     cut = right_and_middle.find("\n\n", middle_start)
     if cut < 0:
         cut = middle_start
+    if 0 < cut < len(right_and_middle) and right_and_middle[cut - 1].isalnum() and right_and_middle[cut].isalnum():
+        while cut < len(right_and_middle) and right_and_middle[cut].isalnum():
+            cut += 1
     right = right_and_middle[:cut].strip()
     middle = right_and_middle[cut:].strip()
     return [right, middle, left]

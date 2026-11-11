@@ -246,7 +246,7 @@ export async function translateText(
       const chunks = chunkText(masked, config.maxChars, config.maxBytes);
       let output = "";
       for (const chunk of chunks) {
-        output += await config.translate(chunk, { from, to, timeout, fetchImpl });
+        output += await withRetry(() => config.translate(chunk, { from, to, timeout, fetchImpl }));
       }
       const restored = restoreTokens(output, tokens);
       const result = { text: restored, provider: name, from, to, cached: false };
@@ -351,4 +351,21 @@ export async function translateTweet(tweet, options = {}) {
       originalQuoteText,
     },
   };
+}
+
+async function withRetry(fn, attempts = 4) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const message = String(error && error.message ? error.message : error);
+      const retriable = /429|rate limit|too many requests|\b5\d\d\b|timeout|timed out|ECONNRESET|ETIMEDOUT|fetch failed|network/i.test(message);
+      if (!retriable || attempt === attempts) break;
+      const wait = Math.min(8000, 600 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 250);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+  throw lastError;
 }

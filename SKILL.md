@@ -64,13 +64,39 @@ The result contains `ok`, `id`, `url`, `author`, `text`, `metrics`, `theme`, `tr
 | Long post → X-article tall card | `node scripts/x-post2image.mjs <url> --layout tall --out long.png` |
 | Optional two-page spread | `node scripts/x-post2image.mjs <url> --layout spread --out spread.png` |
 | Force single page | `node scripts/x-post2image.mjs <url> --layout single` |
-| Batch several posts | `node scripts/x-post2image.mjs <url1> <url2> --out-dir out/` |
+| Batch several posts (parallel by default) | `node scripts/x-post2image.mjs <url1> <url2> --out-dir out/` |
+| Control batch concurrency | `node scripts/x-post2image.mjs <url...> --out-dir out/ --concurrency 6` |
+| Parallel official-page screenshots | `node scripts/capture.mjs --out-dir out/pages <url...> --concurrency 6` |
 | HTML only (no PNG) | `node scripts/x-post2image.mjs <url> --html-only --html card.html` |
 | Check the machine | `node scripts/x-post2image.mjs --doctor` |
 
+## 性能与并行（默认并行 · 更快）
+
+批量渲染默认**并行**（自动取 min(4, CPU 核数)），不要在脚本里写 for 循环串行跑：
+
+```bash
+# 多个帖子默认并行
+node scripts/x-post2image.mjs <url1> <url2> <url3> --out-dir out/ --translate zh-CN --bilingual --theme light
+# 显式控制并发（1 = 串行）
+node scripts/x-post2image.mjs <url...> --out-dir out/ --concurrency 6
+```
+
+实测踩坑（已内置修复，写在这里避免重犯）：
+- **别再串行跑多帖**：默认并发 = min(4, CPU)；`--concurrency` 可覆盖。命中缓存更快。
+- **翻译 429 限流**：`--translate` 遇 429 / 5xx 会**自动指数退避重试**（最多 4 次），无需手工重跑。
+- **长帖自动双页**：卡高超过 `--spread-threshold`（默认 1400px）会**自动切成两页**（即使带了 `--bilingual`）。长帖建议**纯中文**（不加 `--bilingual`），短/中帖再加 `--bilingual`。
+- **双页断词已修**：分页按句/段/单词边界切，不再把 “Gemini Omni Flash” 劈成 “F / lash”。
+- **官网一手截图**：多页截图用 `scripts/capture.mjs`（并行 6 + 本地 Chrome + thum.io/mshots 服务端兜底），被墙域名也能出图：
+
+```bash
+node scripts/capture.mjs --out-dir out/pages --concurrency 6 https://a.com https://b.com
+node scripts/capture.mjs --out-dir out/pages --manifest items.json   # [{"name":"01_x","url":"https://..."}]
+```
+
+
 ## Long posts: X-article card
 
-When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). Short translated posts (≤ `--bilingual-threshold`, default 700 characters) keep the original and Chinese translation both visible in large type, like the reference; longer translated posts use the translation with an `AI 翻译` label. If the tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two (or three, when needed) white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph boundaries, post images on the rightmost (last) page, and date/timezone + `AI 翻译` footers.
+When a post reaches `--long-threshold` characters (default 360), `--layout auto` switches from the normal single X card to a **tall X-official-style article card** (1080 px wide, height grows with content). Short translated posts (≤ `--bilingual-threshold`, default 700 characters) keep the original and Chinese translation both visible in large type, like the reference; longer translated posts use the translation with an `AI 翻译` label. If the tall card grows beyond `--spread-threshold` pixels (default 1400), it automatically switches to the **two-page side-by-side X-card layout** modeled on the reference: two (or three, when needed) white rounded cards, each with real avatar/name/handle/verified badge and official X logo, text split at paragraph/word boundaries (never mid-word), post images on the rightmost (last) page, and date/timezone + `AI 翻译` footers.
 
 Use `--layout tall` to force tall on a shorter post, `--layout single` to force the normal card, `--layout spread` to force the two-page card. `--html-only` is not supported for long-card layouts. Rendering uses `scripts/insight/render_article_card.py` (tall) or `render_two_page.py` (two-page).
 
@@ -137,6 +163,7 @@ See `references/insight-discovery.md`, `insight-caption.md`, `insight-scheduling
 |---|---|---|
 | `-o, --out <file>` | Output PNG path (single post) | `x-post-<id>.png` |
 | `--out-dir <dir>` | Directory for batch output | current directory |
+| `--concurrency <n>` | Parallel workers for batch renders | auto = min(4, CPU) |
 | `-t, --theme <name>` | `light` / `dim` / `dark` | `dark` |
 | `-l, --lang <code>` | Locale for dates and counts | the post's language |
 | `-w, --width <px>` | Card width in CSS pixels | `600` |
@@ -202,6 +229,8 @@ If X's image CDN is blocked (common on mainland China networks), the CLI automat
 | Both data sources fail | Retry once with `--verbose`. If it still fails, save JSON from `https://api.fxtwitter.com/<user>/status/<id>` and pass it with `--data file.json`. Do not invent a card. |
 | `This post is unavailable` | The post is deleted, protected, age-restricted or withheld. Report that to the user. |
 | Translation fails | Retry with `--translation-provider mymemory`, or with network/proxy access. Do not show the original as if it were translated. |
+| Translation 429 / rate limited | Automatic exponential backoff is built in (up to 4 attempts). If it still fails, switch `--translation-provider mymemory`. |
+| Official source page blocked/hangs | Use `scripts/capture.mjs` — tries local Chrome, then server-side thum.io / mshots. If all three fail the page is unreachable; report it, do not fabricate. |
 | Text or images look wrong | Check `--theme`, `--lang`, and whether the post is a video (the card uses its poster frame). |
 | Need to reproduce later | Keep the `--data` JSON or the `--html` output. |
 
@@ -226,6 +255,7 @@ Start with `node scripts/x-post2image.mjs --doctor` whenever the environment is 
 | `scripts/lib/tweet.mjs` | URL parsing, fetching, normalization, cache |
 | `scripts/lib/render.mjs` | X-style HTML/CSS card renderer |
 | `scripts/lib/screenshot.mjs` | Playwright/Chrome screenshot engines |
+| `scripts/capture.mjs` | Parallel official-page screenshotter (local Chrome + server-side thum.io/mshots fallback) |
 | `scripts/lib/media.mjs` | Avatar/photo download, proxy fallback and cache |
 | `scripts/lib/translate.mjs` | MyMemory/Google translation and cache |
 | `scripts/lib/format.mjs` | X-style compact numbers and dates |

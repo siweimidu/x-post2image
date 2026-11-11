@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -28,7 +29,7 @@ import {
   renderScreenshot,
 } from "./lib/screenshot.mjs";
 
-const VERSION = "2.1.5";
+const VERSION = "2.2.0";
 
 const HELP = `x-post2image ${VERSION} — render an X/Twitter post as a PNG card
 
@@ -47,6 +48,7 @@ INPUT
 OUTPUT
   -o, --out <file>       Output PNG path for a single post
       --out-dir <dir>    Output directory (default: current directory)
+      --concurrency <n>  Parallel workers for batch renders (default: auto, up to 4)
       --html <file>      Also save the intermediate HTML
       --html-only        Write HTML only, skip PNG rendering
       --json             Print a machine-readable JSON result to stdout
@@ -148,6 +150,7 @@ function parseArgv(argv) {
     cssFile: null,
     out: null,
     outDir: null,
+    concurrency: null,
     html: null,
     htmlOnly: false,
     data: null,
@@ -172,6 +175,7 @@ function parseArgv(argv) {
     ["-o", "out"],
     ["--out", "out"],
     ["--out-dir", "outDir"],
+    ["--concurrency", "concurrency"],
     ["-t", "theme"],
     ["--theme", "theme"],
     ["-l", "lang"],
@@ -288,6 +292,7 @@ function parseArgv(argv) {
   options.longThreshold = clampInteger(options.longThreshold, 80, 10_000, "--long-threshold");
   options.spreadThreshold = clampInteger(options.spreadThreshold, 600, 10_000, "--spread-threshold");
   options.bilingualThreshold = clampInteger(options.bilingualThreshold, 80, 10_000, "--bilingual-threshold");
+  options.concurrency = options.concurrency === null ? null : clampInteger(options.concurrency, 1, 16, "--concurrency");
   if (options.frame && !["none", "card"].includes(options.frame)) {
     throw usageError(`--frame must be none or card (got "${options.frame}")`);
   }
@@ -434,7 +439,7 @@ async function renderOne(input, options, sharedCss) {
       width: 1080,
       scale: 1,
     });
-    if (options.layout === "auto" && !shouldBilingual && articleShot.height > options.spreadThreshold) {
+    if (options.layout === "auto" && articleShot.height > options.spreadThreshold) {
       await rm(temporary, { force: true }).catch(() => {});
       const spreadData = buildSpreadCardData(tweet, {
         text: tweet.text,
@@ -679,34 +684,50 @@ async function main() {
     console.error(`[x-post2image] Chirp webfont ${options.useWebfont ? "available" : "unavailable; using system font"}`);
   }
 
-  const results = [];
+  const results = new Array(options.positional.length);
   const failures = [];
-  for (const input of options.positional) {
-    try {
-      if (options.positional.length > 1 && !options.json) console.error(`鈫?${input}`);
-      const result = await renderOne(input, options, customCss);
-      results.push(result);
-      if (!options.json) {
-        const size = result.width && result.height ? `${result.width}脳${result.height}` : "html";
-        console.log(`鉁?${result.out || result.html}  ${size}  ${result.source}`);
+  const total = options.positional.length;
+  const cpuCount = (os.cpus && os.cpus().length) ? os.cpus().length : 4;
+  const autoConcurrency = Math.min(4, Math.max(1, cpuCount));
+  const requested = (options.concurrency === null || options.concurrency === undefined) ? autoConcurrency : Number(options.concurrency);
+  const concurrency = Math.max(1, Math.min(requested, total));
+  if (total > 1 && !options.json) console.error(`[x-post2image] rendering ${total} post(s) in parallel (concurrency ${concurrency})`);
+  let cursor = 0;
+  async function renderWorker() {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= total) return;
+      const input = options.positional[index];
+      if (total > 1 && !options.json) console.error(`[start] ${input}`);
+      try {
+        const result = await renderOne(input, options, customCss);
+        results[index] = result;
+        if (!options.json) {
+          const size = result.width && result.height ? `${result.width}x${result.height}` : "html";
+          console.log(`[ok] ${result.out || result.html}  ${size}  ${result.source}`);
+        }
+      } catch (error) {
+        const message = error instanceof TweetError ? error.message : error.message || String(error);
+        failures.push({ input, error: message, details: error.details });
+        if (!options.json) console.error(`[fail] ${input}: ${message}`);
+        if (options.verbose && error.details) console.error(JSON.stringify(error.details, null, 2));
       }
-    } catch (error) {
-      const message = error instanceof TweetError ? error.message : error.message || String(error);
-      failures.push({ input, error: message, details: error.details });
-      if (!options.json) console.error(`鉁?${input}: ${message}`);
-      if (options.verbose && error.details) console.error(JSON.stringify(error.details, null, 2));
     }
   }
+  await Promise.all(Array.from({ length: concurrency }, () => renderWorker()));
+
+  const successful = results.filter(Boolean);
 
   if (options.json) {
     const payload = {
       ok: failures.length === 0,
-      count: results.length,
-      results,
+      count: successful.length,
+      results: successful,
       failures,
     };
-    if (results.length === 1) {
-      Object.assign(payload, results[0]);
+    if (successful.length === 1) {
+      Object.assign(payload, successful[0]);
     }
     console.log(JSON.stringify(payload, null, 2));
   }
@@ -730,4 +751,3 @@ main()
     if (error.details) console.error(JSON.stringify(error.details, null, 2));
     process.exitCode = 1;
   });
-
